@@ -1,0 +1,17 @@
+[package]
+name = "game_of_life"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A Rust implementation of Conway's Game of Life with GUI"
+license = "MIT"
+repository = "https://github.com/yourusername/game_of_life"
+keywords = ["game", "cellular-automata", "gui", "egui"]
+categories = ["games", "simulation"]
+
+[dependencies]
+eframe = "0.28"
+egui = "0.28"
+
+[dev-dependencies]
+criterion = "0.5"

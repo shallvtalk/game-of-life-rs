@@ -1,0 +1,16 @@
+# Clippy configuration for stricter linting
+msrv = "1.70.0"
+
+# Lint configuration
+avoid-breaking-exported-api = true
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+# Additional lints to enable
+warn-on-all-wildcard-imports = true
+disallowed-methods = [
+    "std::collections::HashMap::new",  # Prefer FxHashMap for performance
+]
+
+# Cognitive complexity threshold
+cognitive-complexity-threshold = 25

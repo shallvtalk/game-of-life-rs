@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "pre-commit": "cargo fmt --check && cargo clippy -- -D warnings",
+    "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+  }
+}

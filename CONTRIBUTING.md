@@ -50,7 +50,7 @@ Feature suggestions are welcome! Please:
 
 ```bash
 # Clone your fork
-git clone https://github.com/yourusername/game_of_life.git
+git clone https://github.com/shallvtalk/game_of_life.git
 cd game_of_life
 
 # Build the project

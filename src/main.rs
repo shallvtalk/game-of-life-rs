@@ -1,6 +1,7 @@
 // 导入游戏逻辑模块
 mod game;
 mod patterns;
+mod save_load;
 mod ui;
 
 // 导入所需的外部crate
@@ -34,6 +35,10 @@ struct GameOfLifeApp {
     drag_state: Option<CellState>,
     /// 当前迭代次数（代数）
     generation: usize,
+    /// 保存/加载状态信息
+    save_load_status: Option<String>,
+    /// 状态信息显示的时间戳
+    status_timestamp: Option<std::time::Instant>,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -62,6 +67,90 @@ impl Default for GameOfLifeApp {
             is_dragging: false, // 初始状态为非拖动
             drag_state: None,   // 初始拖动状态为None
             generation: 0,      // 初始代数为0
+            save_load_status: None, // 初始状态无保存/加载信息
+            status_timestamp: None, // 初始状态无时间戳
+        }
+    }
+}
+
+impl GameOfLifeApp {
+    /// 设置状态信息
+    fn set_status(&mut self, message: String) {
+        self.save_load_status = Some(message);
+        self.status_timestamp = Some(std::time::Instant::now());
+    }
+
+    /// 检查并清除过期的状态信息
+    fn update_status(&mut self) {
+        if let Some(timestamp) = self.status_timestamp {
+            if timestamp.elapsed() > std::time::Duration::from_secs(5) {
+                self.save_load_status = None;
+                self.status_timestamp = None;
+            }
+        }
+    }
+
+    /// 保存游戏状态到文件
+    fn save_game(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("Game of Life Files", &["gol"])
+            .add_filter("JSON Files", &["json"])
+            .set_file_name("game_state.gol")
+            .save_file()
+        {
+            match save_load::save_game_state(
+                &path,
+                &self.grid,
+                self.generation,
+                self.update_speed,
+                self.cell_size,
+                self.density,
+            ) {
+                Ok(_) => {
+                    self.set_status(format!("Game saved to: {:?}", path));
+                }
+                Err(e) => {
+                    self.set_status(format!("Save failed: {}", e));
+                }
+            }
+        }
+    }
+
+    /// 从文件加载游戏状态
+    fn load_game(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("Game of Life Files", &["gol"])
+            .add_filter("JSON Files", &["json"])
+            .pick_file()
+        {
+            match save_load::load_game_state(&path) {
+                Ok(game_state) => {
+                    match game_state.to_grid() {
+                        Ok(grid) => {
+                            self.grid = grid;
+                            self.generation = game_state.generation;
+                            self.update_speed = game_state.settings.update_speed;
+                            self.cell_size = game_state.settings.cell_size;
+                            self.density = game_state.settings.density;
+                            self.grid_width = game_state.width;
+                            self.grid_height = game_state.height;
+
+                            // 更新更新间隔
+                            self.update_interval = std::time::Duration::from_millis(
+                                (1000.0 / self.update_speed) as u64,
+                            );
+
+                            self.set_status(format!("Game loaded from: {:?}", path));
+                        }
+                        Err(e) => {
+                            self.set_status(format!("Load failed: {}", e));
+                        }
+                    }
+                }
+                Err(e) => {
+                    self.set_status(format!("File read failed: {}", e));
+                }
+            }
         }
     }
 }
@@ -75,6 +164,9 @@ impl eframe::App for GameOfLifeApp {
     /// * `ctx` - egui上下文，用于创建UI和控制重绘
     /// * `_frame` - 窗口框架信息（本例中未使用）
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // 更新状态信息（清除过期的状态）
+        self.update_status();
+
         // 检查是否需要自动更新游戏状态
         if self.is_running && self.last_update.elapsed() >= self.update_interval {
             self.grid.next_generation(); // 计算下一代

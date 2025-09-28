@@ -53,6 +53,25 @@ impl GameOfLifeApp {
                 self.generation = 0; // 重置代数计数
             }
         });
+
+        // 文件操作按钮（水平布局）
+        ui.horizontal(|ui| {
+            // 保存按钮
+            if ui.button("Save").clicked() {
+                self.save_game();
+            }
+
+            // 加载按钮
+            if ui.button("Load").clicked() {
+                self.load_game();
+            }
+        });
+
+        // 显示保存/加载状态信息
+        if let Some(status) = &self.save_load_status {
+            ui.separator();
+            ui.label(egui::RichText::new(status).small().color(egui::Color32::GRAY));
+        }
     }
 
     /// 渲染设置面板

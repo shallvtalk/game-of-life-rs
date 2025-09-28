@@ -219,3 +219,90 @@ pub fn get_all_patterns() -> Vec<(&'static str, Vec<&'static Pattern>)> {
         ),
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pattern_structure() {
+        let blinker = &oscillators::BLINKER;
+        assert_eq!(blinker.name, "Blinker");
+        assert_eq!(blinker.description, "Simple oscillator, period 2");
+        assert_eq!(blinker.data.len(), 1);
+        assert_eq!(blinker.data[0], "OOO");
+    }
+
+    #[test]
+    fn test_get_all_patterns() {
+        let patterns = get_all_patterns();
+
+        // Should have 4 categories
+        assert_eq!(patterns.len(), 4);
+
+        // Check category names
+        let category_names: Vec<&str> = patterns.iter().map(|(name, _)| *name).collect();
+        assert!(category_names.contains(&"Oscillators"));
+        assert!(category_names.contains(&"Spaceships"));
+        assert!(category_names.contains(&"Guns"));
+        assert!(category_names.contains(&"Miscellaneous"));
+
+        // Check that each category has patterns
+        for (_, patterns_in_category) in patterns {
+            assert!(!patterns_in_category.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_oscillator_patterns() {
+        // Test that blinker pattern has correct dimensions
+        let blinker = &oscillators::BLINKER;
+        assert_eq!(blinker.data.len(), 1);
+        assert_eq!(blinker.data[0].len(), 3);
+
+        // Test that pulsar pattern has correct dimensions
+        let pulsar = &oscillators::PULSAR;
+        assert_eq!(pulsar.data.len(), 13);
+        assert_eq!(pulsar.data[0].len(), 13);
+    }
+
+    #[test]
+    fn test_spaceship_patterns() {
+        // Test glider pattern
+        let glider = &spaceships::GLIDER;
+        assert_eq!(glider.data.len(), 3);
+        assert_eq!(glider.data[0], " O ");
+        assert_eq!(glider.data[1], "  O");
+        assert_eq!(glider.data[2], "OOO");
+
+        // Test that spaceships have reasonable sizes
+        let lwss = &spaceships::LWSS;
+        assert_eq!(lwss.data.len(), 4);
+        assert!(lwss.data[0].len() >= 4);
+    }
+
+    #[test]
+    fn test_gun_patterns() {
+        // Test that gun patterns are reasonably large
+        let gosper_gun = &guns::GOSPER_GLIDER_GUN;
+        assert!(gosper_gun.data.len() >= 9);
+        assert!(gosper_gun.data[0].len() >= 30);
+
+        let simkin_gun = &guns::SIMKIN_GLIDER_GUN;
+        assert!(simkin_gun.data.len() >= 18);
+        assert!(simkin_gun.data[0].len() >= 20);
+    }
+
+    #[test]
+    fn test_miscellaneous_patterns() {
+        // Test block pattern (still life)
+        let block = &miscellaneous::BLOCK;
+        assert_eq!(block.data.len(), 2);
+        assert_eq!(block.data[0], "OO");
+        assert_eq!(block.data[1], "OO");
+
+        // Test R-pentomino
+        let r_pentomino = &miscellaneous::R_PENTOMINO;
+        assert_eq!(r_pentomino.data.len(), 3);
+    }
+}

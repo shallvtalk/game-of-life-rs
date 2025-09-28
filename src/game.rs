@@ -1,6 +1,6 @@
 /// 细胞状态枚举
 /// 在康威生命游戏中，每个细胞只有两种状态：存活或死亡
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum CellState {
     /// 细胞存活状态
     Alive,
@@ -242,5 +242,131 @@ impl Grid {
 impl Default for Grid {
     fn default() -> Self {
         Self::new(50, 50)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_grid_creation() {
+        let grid = Grid::new(10, 8);
+        assert_eq!(grid.width(), 10);
+        assert_eq!(grid.height(), 8);
+
+        // All cells should be dead initially
+        for y in 0..8 {
+            for x in 0..10 {
+                assert_eq!(grid.get_cell(x, y), &CellState::Dead);
+            }
+        }
+    }
+
+    #[test]
+    fn test_cell_manipulation() {
+        let mut grid = Grid::new(5, 5);
+
+        // Set a cell to alive
+        grid.set_cell(2, 2, CellState::Alive);
+        assert_eq!(grid.get_cell(2, 2), &CellState::Alive);
+
+        // Toggle should make it dead
+        grid.toggle_cell(2, 2);
+        assert_eq!(grid.get_cell(2, 2), &CellState::Dead);
+
+        // Toggle again should make it alive
+        grid.toggle_cell(2, 2);
+        assert_eq!(grid.get_cell(2, 2), &CellState::Alive);
+    }
+
+    #[test]
+    fn test_clear_grid() {
+        let mut grid = Grid::new(3, 3);
+
+        // Set some cells alive
+        grid.set_cell(0, 0, CellState::Alive);
+        grid.set_cell(1, 1, CellState::Alive);
+        grid.set_cell(2, 2, CellState::Alive);
+
+        // Clear the grid
+        grid.clear();
+
+        // All cells should be dead
+        for y in 0..3 {
+            for x in 0..3 {
+                assert_eq!(grid.get_cell(x, y), &CellState::Dead);
+            }
+        }
+    }
+
+    #[test]
+    fn test_neighbor_counting() {
+        let mut grid = Grid::new(5, 5);
+
+        // Create a simple pattern: vertical line in middle
+        grid.set_cell(2, 1, CellState::Alive);
+        grid.set_cell(2, 2, CellState::Alive);
+        grid.set_cell(2, 3, CellState::Alive);
+
+        // Test neighbor counts
+        assert_eq!(grid.count_neighbors(2, 0), 1); // Above the line
+        assert_eq!(grid.count_neighbors(2, 1), 1); // Top of line
+        assert_eq!(grid.count_neighbors(2, 2), 2); // Middle of line
+        assert_eq!(grid.count_neighbors(2, 3), 1); // Bottom of line
+        assert_eq!(grid.count_neighbors(2, 4), 1); // Below the line
+
+        assert_eq!(grid.count_neighbors(1, 2), 3); // Left of middle
+        assert_eq!(grid.count_neighbors(3, 2), 3); // Right of middle
+    }
+
+    #[test]
+    fn test_blinker_pattern() {
+        let mut grid = Grid::new(5, 5);
+
+        // Create blinker pattern (horizontal line)
+        grid.set_cell(1, 2, CellState::Alive);
+        grid.set_cell(2, 2, CellState::Alive);
+        grid.set_cell(3, 2, CellState::Alive);
+
+        // After one generation, should become vertical
+        grid.next_generation();
+
+        assert_eq!(grid.get_cell(1, 2), &CellState::Dead);
+        assert_eq!(grid.get_cell(2, 1), &CellState::Alive);
+        assert_eq!(grid.get_cell(2, 2), &CellState::Alive);
+        assert_eq!(grid.get_cell(2, 3), &CellState::Alive);
+        assert_eq!(grid.get_cell(3, 2), &CellState::Dead);
+
+        // After another generation, should return to horizontal
+        grid.next_generation();
+
+        assert_eq!(grid.get_cell(1, 2), &CellState::Alive);
+        assert_eq!(grid.get_cell(2, 1), &CellState::Dead);
+        assert_eq!(grid.get_cell(2, 2), &CellState::Alive);
+        assert_eq!(grid.get_cell(2, 3), &CellState::Dead);
+        assert_eq!(grid.get_cell(3, 2), &CellState::Alive);
+    }
+
+    #[test]
+    fn test_load_pattern() {
+        let mut grid = Grid::new(10, 10);
+
+        let pattern = &[" O ", "  O", "OOO"];
+
+        grid.load_pattern(pattern, 3, 3);
+
+        // Check that the pattern was loaded correctly
+        assert_eq!(grid.get_cell(3, 3), &CellState::Dead); // space
+        assert_eq!(grid.get_cell(4, 3), &CellState::Alive); // O
+        assert_eq!(grid.get_cell(5, 3), &CellState::Dead); // space
+
+        assert_eq!(grid.get_cell(3, 4), &CellState::Dead); // space
+        assert_eq!(grid.get_cell(4, 4), &CellState::Dead); // space
+        assert_eq!(grid.get_cell(5, 4), &CellState::Alive); // O
+
+        assert_eq!(grid.get_cell(3, 5), &CellState::Alive); // O
+        assert_eq!(grid.get_cell(4, 5), &CellState::Alive); // O
+        assert_eq!(grid.get_cell(5, 5), &CellState::Alive); // O
     }
 }

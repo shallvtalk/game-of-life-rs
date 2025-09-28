@@ -1,6 +1,5 @@
 /// 康威生命游戏预设图案模块
 /// 包含各种经典的生命游戏图案
-
 /// 图案数据结构
 pub struct Pattern {
     pub name: &'static str,
@@ -21,24 +20,16 @@ pub mod oscillators {
 
     /// 蟾蜍 - 周期为2的振荡器
     pub const TOAD: Pattern = Pattern {
-        name: "Toad", 
+        name: "Toad",
         description: "Oscillator, period 2",
-        data: &[
-            " OOO",
-            "OOO ",
-        ],
+        data: &[" OOO", "OOO "],
     };
 
     /// 信标 - 周期为2的振荡器
     pub const BEACON: Pattern = Pattern {
         name: "Beacon",
-        description: "Oscillator, period 2", 
-        data: &[
-            "OO  ",
-            "O   ",
-            "   O",
-            "  OO",
-        ],
+        description: "Oscillator, period 2",
+        data: &["OO  ", "O   ", "   O", "  OO"],
     };
 
     /// 脉冲星 - 周期为3的经典振荡器
@@ -49,14 +40,14 @@ pub mod oscillators {
             "  OOO   OOO  ",
             "             ",
             "O    O O    O",
-            "O    O O    O", 
+            "O    O O    O",
             "O    O O    O",
             "  OOO   OOO  ",
             "             ",
             "  OOO   OOO  ",
             "O    O O    O",
             "O    O O    O",
-            "O    O O    O", 
+            "O    O O    O",
             "             ",
             "  OOO   OOO  ",
         ],
@@ -84,49 +75,28 @@ pub mod spaceships {
     pub const GLIDER: Pattern = Pattern {
         name: "Glider",
         description: "Smallest spaceship, moves diagonally",
-        data: &[
-            " O ",
-            "  O",
-            "OOO",
-        ],
+        data: &[" O ", "  O", "OOO"],
     };
 
     /// 轻量级飞船
     pub const LWSS: Pattern = Pattern {
         name: "LWSS",
         description: "Lightweight spaceship",
-        data: &[
-            " OOOO",
-            "O   O",
-            "    O",
-            "O  O ",
-        ],
+        data: &[" OOOO", "O   O", "    O", "O  O "],
     };
 
     /// 中量级飞船
     pub const MWSS: Pattern = Pattern {
-        name: "MWSS", 
+        name: "MWSS",
         description: "Middleweight spaceship",
-        data: &[
-            "  O   ",
-            " OOOO ",
-            "O    O",
-            "     O",
-            "O   O ",
-        ],
+        data: &["  O   ", " OOOO ", "O    O", "     O", "O   O "],
     };
 
     /// 重量级飞船
     pub const HWSS: Pattern = Pattern {
         name: "HWSS",
-        description: "Heavyweight spaceship", 
-        data: &[
-            "   O   ",
-            "  OOOO ",
-            " O    O",
-            "      O",
-            " O   O ",
-        ],
+        description: "Heavyweight spaceship",
+        data: &["   O   ", "  OOOO ", " O    O", "      O", " O   O "],
     };
 }
 
@@ -187,71 +157,65 @@ pub mod miscellaneous {
     pub const R_PENTOMINO: Pattern = Pattern {
         name: "R-Pentomino",
         description: "Complex evolution from simple start",
-        data: &[
-            " OO",
-            "OO ",
-            " O ",
-        ],
+        data: &[" OO", "OO ", " O "],
     };
 
     /// 死硬 - 会存活一段时间后完全消失
     pub const DIEHARD: Pattern = Pattern {
-        name: "Diehard", 
+        name: "Diehard",
         description: "Dies after 130 generations",
-        data: &[
-            "      O ",
-            "OO      ",
-            " O   OOO",
-        ],
+        data: &["      O ", "OO      ", " O   OOO"],
     };
 
     /// 橡实 - 从简单开始演化出复杂图形
     pub const ACORN: Pattern = Pattern {
         name: "Acorn",
         description: "Grows into complex pattern",
-        data: &[
-            " O     ",
-            "   O   ",
-            "OO  OOO",
-        ],
+        data: &[" O     ", "   O   ", "OO  OOO"],
     };
 
     /// 简单的方块 - 静态不变的图案
     pub const BLOCK: Pattern = Pattern {
         name: "Block",
         description: "Still life - never changes",
-        data: &[
-            "OO",
-            "OO",
-        ],
+        data: &["OO", "OO"],
     };
 }
 
 /// 获取所有预设图案的列表
 pub fn get_all_patterns() -> Vec<(&'static str, Vec<&'static Pattern>)> {
     vec![
-        ("Oscillators", vec![
-            &oscillators::BLINKER,
-            &oscillators::TOAD,
-            &oscillators::BEACON,
-            &oscillators::PULSAR,
-            &oscillators::PENTADECATHLON,
-        ]),
-        ("Spaceships", vec![
-            &spaceships::GLIDER,
-            &spaceships::LWSS,
-            &spaceships::MWSS,
-            &spaceships::HWSS,
-        ]),
-        ("Guns", vec![
-            &guns::GOSPER_GLIDER_GUN,
-            &guns::SIMKIN_GLIDER_GUN,
-        ]),
-        ("Miscellaneous", vec![
-            &miscellaneous::R_PENTOMINO,
-            &miscellaneous::DIEHARD,
-            &miscellaneous::ACORN,
-            &miscellaneous::BLOCK,
-        ]),
+        (
+            "Oscillators",
+            vec![
+                &oscillators::BLINKER,
+                &oscillators::TOAD,
+                &oscillators::BEACON,
+                &oscillators::PULSAR,
+                &oscillators::PENTADECATHLON,
+            ],
+        ),
+        (
+            "Spaceships",
+            vec![
+                &spaceships::GLIDER,
+                &spaceships::LWSS,
+                &spaceships::MWSS,
+                &spaceships::HWSS,
+            ],
+        ),
+        (
+            "Guns",
+            vec![&guns::GOSPER_GLIDER_GUN, &guns::SIMKIN_GLIDER_GUN],
+        ),
+        (
+            "Miscellaneous",
+            vec![
+                &miscellaneous::R_PENTOMINO,
+                &miscellaneous::DIEHARD,
+                &miscellaneous::ACORN,
+                &miscellaneous::BLOCK,
+            ],
+        ),
     ]
 }

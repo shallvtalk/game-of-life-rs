@@ -1,8 +1,7 @@
+use crate::game::CellState;
 /// UI组件模块
 /// 包含所有用户界面相关的渲染和交互逻辑
-
-use crate::{GameOfLifeApp, patterns};
-use crate::game::CellState;
+use crate::{patterns, GameOfLifeApp};
 use eframe::egui;
 
 /// 控制面板相关的UI渲染
@@ -10,11 +9,11 @@ impl GameOfLifeApp {
     /// 渲染左侧控制面板
     pub fn render_control_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("Controls");
-        
+
         // 显示当前迭代次数
         ui.label(format!("Generation: {}", self.generation));
         ui.separator();
-        
+
         self.render_game_controls(ui);
         self.render_settings_panel(ui);
         self.render_presets_panel(ui);
@@ -25,30 +24,33 @@ impl GameOfLifeApp {
         // 游戏控制按钮（水平布局）
         ui.horizontal(|ui| {
             // 开始/暂停按钮
-            if ui.button(if self.is_running { "Pause" } else { "Start" }).clicked() {
+            if ui
+                .button(if self.is_running { "Pause" } else { "Start" })
+                .clicked()
+            {
                 self.is_running = !self.is_running;
                 self.last_update = std::time::Instant::now();
             }
-            
+
             // 单步执行按钮
             if ui.button("Step").clicked() {
                 self.grid.next_generation();
-                self.generation += 1;  // 单步时也要增加代数
+                self.generation += 1; // 单步时也要增加代数
             }
         });
-        
+
         // 网格操作按钮（水平布局）
         ui.horizontal(|ui| {
             // 清空网格按钮
             if ui.button("Clear").clicked() {
                 self.grid.clear();
-                self.generation = 0;  // 重置代数计数
+                self.generation = 0; // 重置代数计数
             }
-            
+
             // 随机化网格按钮
             if ui.button("Random").clicked() {
                 self.grid.randomize(self.density);
-                self.generation = 0;  // 重置代数计数
+                self.generation = 0; // 重置代数计数
             }
         });
     }
@@ -57,31 +59,35 @@ impl GameOfLifeApp {
     pub fn render_settings_panel(&mut self, ui: &mut egui::Ui) {
         ui.separator();
         ui.heading("Settings");
-        
+
         // 更新速度调节滑块
         ui.label("Update Speed (FPS):");
-        if ui.add(egui::Slider::new(&mut self.update_speed, 1.0..=30.0)).changed() {
+        if ui
+            .add(egui::Slider::new(&mut self.update_speed, 1.0..=30.0))
+            .changed()
+        {
             // 当速度改变时，重新计算更新间隔
-            self.update_interval = std::time::Duration::from_millis((1000.0 / self.update_speed) as u64);
+            self.update_interval =
+                std::time::Duration::from_millis((1000.0 / self.update_speed) as u64);
         }
-        
+
         // 网格尺寸调节滑块
         ui.label("Grid Width:");
         ui.add(egui::Slider::new(&mut self.grid_width, 10..=200));
-        
+
         ui.label("Grid Height:");
         ui.add(egui::Slider::new(&mut self.grid_height, 10..=150));
-        
+
         // 随机密度调节滑块
         ui.label("Random Density:");
         ui.add(egui::Slider::new(&mut self.density, 0.0..=1.0));
-        
+
         // 应用网格设置按钮
         if ui.button("Apply Grid Settings").clicked() {
             // 创建新的网格并随机化
             self.grid = crate::game::Grid::new(self.grid_width, self.grid_height);
             self.grid.randomize(self.density);
-            self.generation = 0;  // 重置代数计数
+            self.generation = 0; // 重置代数计数
         }
     }
 
@@ -89,7 +95,7 @@ impl GameOfLifeApp {
     pub fn render_presets_panel(&mut self, ui: &mut egui::Ui) {
         ui.separator();
         ui.heading("Presets");
-        
+
         // 使用新的预设系统
         egui::ScrollArea::vertical()
             .max_height(300.0)
@@ -99,10 +105,12 @@ impl GameOfLifeApp {
                         for pattern in patterns {
                             if ui.button(pattern.name).clicked() {
                                 // 计算居中位置
-                                let center_x = (self.grid.width().saturating_sub(pattern.data[0].len())) / 2;
-                                let center_y = (self.grid.height().saturating_sub(pattern.data.len())) / 2;
+                                let center_x =
+                                    (self.grid.width().saturating_sub(pattern.data[0].len())) / 2;
+                                let center_y =
+                                    (self.grid.height().saturating_sub(pattern.data.len())) / 2;
                                 self.grid.load_pattern(pattern.data, center_x, center_y);
-                                self.generation = 0;  // 重置代数计数
+                                self.generation = 0; // 重置代数计数
                             }
                             // 显示图案描述
                             ui.label(egui::RichText::new(pattern.description).small().italics());
@@ -124,12 +132,12 @@ impl GameOfLifeApp {
                 self.grid.width() as f32 * self.cell_size,
                 self.grid.height() as f32 * self.cell_size,
             ),
-            egui::Sense::click_and_drag(),  // 允许鼠标点击和拖动交互
+            egui::Sense::click_and_drag(), // 允许鼠标点击和拖动交互
         );
 
         // 处理鼠标交互
         self.handle_mouse_interaction(&response);
-        
+
         // 绘制网格
         self.draw_grid(&response, &painter);
     }
@@ -158,8 +166,8 @@ impl GameOfLifeApp {
                     // 开始拖动时，记住当前细胞的状态，并决定拖动时要绘制的状态
                     let current_state = self.grid.get_cell(x, y).clone();
                     self.drag_state = Some(match current_state {
-                        CellState::Alive => CellState::Dead,   // 如果当前是存活，拖动时绘制死亡
-                        CellState::Dead => CellState::Alive,   // 如果当前是死亡，拖动时绘制存活
+                        CellState::Alive => CellState::Dead, // 如果当前是存活，拖动时绘制死亡
+                        CellState::Dead => CellState::Alive, // 如果当前是死亡，拖动时绘制存活
                     });
                     self.is_dragging = true;
                     // 设置第一个细胞的状态
@@ -204,17 +212,15 @@ impl GameOfLifeApp {
             for x in 0..self.grid.width() {
                 // 计算每个细胞的绘制矩形
                 let rect = egui::Rect::from_min_size(
-                    response.rect.left_top() + egui::Vec2::new(
-                        x as f32 * self.cell_size,
-                        y as f32 * self.cell_size,
-                    ),
+                    response.rect.left_top()
+                        + egui::Vec2::new(x as f32 * self.cell_size, y as f32 * self.cell_size),
                     egui::Vec2::splat(self.cell_size),
                 );
 
                 // 根据细胞状态选择颜色
                 let color = match self.grid.get_cell(x, y) {
-                    CellState::Alive => egui::Color32::BLACK,  // 存活细胞显示为黑色
-                    CellState::Dead => egui::Color32::WHITE,   // 死亡细胞显示为白色
+                    CellState::Alive => egui::Color32::BLACK, // 存活细胞显示为黑色
+                    CellState::Dead => egui::Color32::WHITE,  // 死亡细胞显示为白色
                 };
 
                 // 绘制填充的矩形（细胞）

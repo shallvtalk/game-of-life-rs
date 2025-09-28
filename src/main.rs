@@ -5,7 +5,7 @@ mod ui;
 
 // 导入所需的外部crate
 use eframe::egui;
-use game::{Grid, CellState};
+use game::{CellState, Grid};
 
 /// 康威生命游戏应用程序的主结构体
 /// 包含游戏状态、UI设置和控制参数
@@ -43,25 +43,25 @@ impl Default for GameOfLifeApp {
         // 设置默认网格尺寸
         let grid_width = 60;
         let grid_height = 40;
-        
+
         // 创建网格并进行随机初始化
         let mut grid = Grid::new(grid_width, grid_height);
         let density = 0.3;
         grid.randomize(density);
-        
+
         Self {
             grid,
-            is_running: false,                                          // 初始状态为暂停
-            cell_size: 10.0,                                           // 每个细胞10像素大小
-            last_update: std::time::Instant::now(),                   // 记录当前时间
-            update_interval: std::time::Duration::from_millis(100),   // 默认100ms更新一次（10 FPS）
+            is_running: false,                      // 初始状态为暂停
+            cell_size: 10.0,                        // 每个细胞10像素大小
+            last_update: std::time::Instant::now(), // 记录当前时间
+            update_interval: std::time::Duration::from_millis(100), // 默认100ms更新一次（10 FPS）
             grid_width,
             grid_height,
-            update_speed: 10.0,                                        // 默认10 FPS
+            update_speed: 10.0, // 默认10 FPS
             density,
-            is_dragging: false,                                        // 初始状态为非拖动
-            drag_state: None,                                          // 初始拖动状态为None
-            generation: 0,                                             // 初始代数为0
+            is_dragging: false, // 初始状态为非拖动
+            drag_state: None,   // 初始拖动状态为None
+            generation: 0,      // 初始代数为0
         }
     }
 }
@@ -70,17 +70,17 @@ impl Default for GameOfLifeApp {
 /// 这是egui应用程序的核心接口
 impl eframe::App for GameOfLifeApp {
     /// 应用程序的主更新函数，每帧都会被调用
-    /// 
+    ///
     /// # 参数
     /// * `ctx` - egui上下文，用于创建UI和控制重绘
     /// * `_frame` - 窗口框架信息（本例中未使用）
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // 检查是否需要自动更新游戏状态
         if self.is_running && self.last_update.elapsed() >= self.update_interval {
-            self.grid.next_generation();                    // 计算下一代
-            self.generation += 1;                           // 增加代数计数
-            self.last_update = std::time::Instant::now();  // 更新时间戳
-            ctx.request_repaint();                          // 请求重绘界面
+            self.grid.next_generation(); // 计算下一代
+            self.generation += 1; // 增加代数计数
+            self.last_update = std::time::Instant::now(); // 更新时间戳
+            ctx.request_repaint(); // 请求重绘界面
         }
 
         // 创建左侧控制面板
@@ -98,7 +98,6 @@ impl eframe::App for GameOfLifeApp {
             ctx.request_repaint_after(self.update_interval);
         }
     }
-
 }
 
 /// 程序主入口函数
@@ -107,8 +106,8 @@ fn main() -> Result<(), eframe::Error> {
     // 配置应用程序窗口选项
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 600.0])                    // 设置窗口初始大小
-            .with_title("Conway's Game of Life"),               // 设置窗口标题
+            .with_inner_size([800.0, 600.0]) // 设置窗口初始大小
+            .with_title("Conway's Game of Life"), // 设置窗口标题
         ..Default::default()
     };
 

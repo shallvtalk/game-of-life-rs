@@ -89,11 +89,11 @@ impl Default for GameOfLifeApp {
             save_load_status: None, // 初始状态无保存/加载信息
             status_timestamp: None, // 初始状态无时间戳
             zoom_level: 1.0,    // 默认缩放级别
-            color_theme: ColorTheme::Light, // 默认浅色主题
+            color_theme: ColorTheme::Dark, // 默认浅色主题
             show_grid_lines: true, // 默认显示网格线
             theme_transition_progress: 1.0, // 初始无动画
             theme_transition_start: None,   // 初始无动画
-            target_theme: ColorTheme::Light, // 初始目标主题与当前主题相同
+            target_theme: ColorTheme::Dark, // 初始目标主题与当前主题相同
         }
     }
 }
@@ -243,12 +243,13 @@ impl GameOfLifeApp {
     /// 保存游戏状态到文件
     fn save_game(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
+            .add_filter("RLE Files", &["rle"])
             .add_filter("Game of Life Files", &["gol"])
             .add_filter("JSON Files", &["json"])
             .set_file_name("game_state.gol")
             .save_file()
         {
-            match save_load::save_game_state(
+            match save_load::save_file(
                 &path,
                 &self.grid,
                 self.generation,
@@ -257,7 +258,10 @@ impl GameOfLifeApp {
                 self.density,
             ) {
                 Ok(_) => {
-                    self.set_status(format!("Game saved to: {:?}", path));
+                    let format = path.extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("unknown");
+                    self.set_status(format!("File saved as {} format to: {:?}", format, path));
                 }
                 Err(e) => {
                     self.set_status(format!("Save failed: {}", e));
@@ -269,12 +273,13 @@ impl GameOfLifeApp {
     /// 从文件加载游戏状态
     fn load_game(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
+            .add_filter("RLE Files", &["rle"])
             .add_filter("Game of Life Files", &["gol"])
             .add_filter("JSON Files", &["json"])
             .pick_file()
         {
-            match save_load::load_game_state(&path) {
-                Ok(game_state) => {
+            match save_load::load_file(&path) {
+                Ok(save_load::LoadResult::GameState(game_state)) => {
                     match game_state.to_grid() {
                         Ok(grid) => {
                             self.grid = grid;
@@ -290,12 +295,15 @@ impl GameOfLifeApp {
                                 (1000.0 / self.update_speed) as u64,
                             );
 
-                            self.set_status(format!("Game loaded from: {:?}", path));
+                            self.set_status(format!("Game state loaded from: {:?}", path));
                         }
                         Err(e) => {
                             self.set_status(format!("Load failed: {}", e));
                         }
                     }
+                }
+                Ok(save_load::LoadResult::RlePattern(pattern)) => {
+                    self.load_rle_pattern(pattern, &path);
                 }
                 Err(e) => {
                     self.set_status(format!("File read failed: {}", e));
@@ -303,6 +311,45 @@ impl GameOfLifeApp {
             }
         }
     }
+
+    /// 加载RLE图案
+    fn load_rle_pattern(&mut self, pattern: save_load::rle::RlePattern, path: &std::path::Path) {
+        // 创建新网格以适应RLE图案大小
+        let new_width = pattern.width.max(self.grid_width);
+        let new_height = pattern.height.max(self.grid_height);
+
+        let mut new_grid = crate::game::Grid::new(new_width, new_height);
+
+        // 计算居中位置
+        let start_x = (new_width.saturating_sub(pattern.width)) / 2;
+        let start_y = (new_height.saturating_sub(pattern.height)) / 2;
+
+        // 将RLE图案加载到网格中
+        for (y, row) in pattern.data.iter().enumerate() {
+            for (x, &cell) in row.iter().enumerate() {
+                if cell {
+                    let grid_x = start_x + x;
+                    let grid_y = start_y + y;
+                    if grid_x < new_width && grid_y < new_height {
+                        new_grid.set_cell(grid_x, grid_y, CellState::Alive);
+                    }
+                }
+            }
+        }
+
+        self.grid = new_grid;
+        self.grid_width = new_width;
+        self.grid_height = new_height;
+        self.generation = 0;
+
+        let info = if pattern.name.is_empty() {
+            format!("RLE pattern loaded from: {:?}", path)
+        } else {
+            format!("RLE pattern '{}' loaded from: {:?}", pattern.name, path)
+        };
+        self.set_status(info);
+    }
+
 }
 
 /// 为GameOfLifeApp实现eframe::App trait
@@ -316,10 +363,10 @@ impl eframe::App for GameOfLifeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // 更新主题切换动画
         self.update_theme_transition();
-        
+
         // 应用UI主题
         self.set_ui_theme(ctx);
-        
+
         // 更新状态信息（清除过期的状态）
         self.update_status();
 
@@ -345,7 +392,7 @@ impl eframe::App for GameOfLifeApp {
         if self.is_running {
             ctx.request_repaint_after(self.update_interval);
         }
-        
+
         // 如果正在进行主题切换动画，请求持续重绘
         if self.theme_transition_progress < 1.0 {
             ctx.request_repaint();

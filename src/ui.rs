@@ -23,10 +23,12 @@ impl GameOfLifeApp {
                         .color(egui::Color32::GRAY));
                 ui.separator();
 
-                // 游戏控制区域
-                ui.collapsing("Game Controls", |ui| {
-                    self.render_game_controls(ui);
-                });
+                // 游戏控制区域 默认展开
+                egui::CollapsingHeader::new("Game Controls")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        self.render_game_controls(ui);
+                    });
 
                 ui.add_space(5.0);
 

@@ -7,7 +7,8 @@ A Rust implementation of Conway's Game of Life with a graphical user interface b
 - **Interactive GUI**: Modern, responsive interface with real-time controls
 - **Mouse Interaction**: Click and drag to draw living cells directly on the grid
 - **Save/Load System**: ✅ **IMPLEMENTED** - Save and load game states to/from files
-  - Support for .gol and .json file formats
+  - Support for .gol, .json, and .rle file formats
+  - RLE (Run Length Encoded) format for standard Game of Life pattern sharing
   - Preserves grid state, generation count, and all settings
   - File dialog integration for easy file management
   - Comprehensive error handling and status feedback
@@ -78,11 +79,13 @@ cargo run --release
 Preserve and share your game states:
 
 - **Save**: Click the Save button to export your current game state
-  - Choose between .gol (Game of Life) or .json file formats
+  - Choose between .gol (Game of Life), .json, or .rle file formats
+  - .rle format is the standard format for sharing Game of Life patterns
   - Saves grid state, generation count, and all current settings
   - Default filename: `game_state.gol`
 - **Load**: Click the Load button to import a previously saved game
-  - Supports both .gol and .json file formats
+  - Supports .gol, .json, and .rle file formats
+  - RLE files can be downloaded from online pattern libraries
   - Automatically restores all game settings and grid configuration
   - Status messages confirm successful operations or report errors
 
@@ -158,7 +161,7 @@ These simple rules create surprisingly complex and beautiful patterns!
 
 - ✅ **COMPLETED** Save current grid state to file (JSON format) / 将当前网格状态保存为文件（JSON 格式）
 - ✅ **COMPLETED** Load previously saved game states / 从文件加载之前保存的游戏状态
-- Support RLE format import/export (Game of Life standard) / 支持 RLE 格式导入/导出（生命游戏标准格式）
+- ✅ **COMPLETED** Support RLE format import/export (Game of Life standard) / 支持 RLE 格式导入/导出（生命游戏标准格式）
 
 #### History and Playback / 历史记录和回放
 

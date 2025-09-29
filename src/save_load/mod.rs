@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+pub mod rle;
+
 /// 错误类型定义
 #[derive(Debug)]
 pub enum SaveLoadError {
@@ -205,6 +207,67 @@ pub fn load_game_state<P: AsRef<Path>>(path: P) -> Result<GameState, SaveLoadErr
     game_state.validate()?;
 
     Ok(game_state)
+}
+
+/// 统一的文件保存接口 - 根据文件扩展名自动选择格式
+pub fn save_file<P: AsRef<Path>>(
+    path: P,
+    grid: &Grid,
+    generation: usize,
+    update_speed: f32,
+    cell_size: f32,
+    density: f32,
+) -> Result<(), SaveLoadError> {
+    let path = path.as_ref();
+    
+    if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
+        match extension.to_lowercase().as_str() {
+            "rle" => {
+                let pattern = rle::RlePattern::from_grid(grid, "Exported Pattern".to_string());
+                rle::export_rle_file(path, &pattern)
+                    .map_err(|e| SaveLoadError::InvalidGameState(e.to_string()))
+            }
+            _ => {
+                // 默认使用JSON/GOL格式
+                save_game_state(path, grid, generation, update_speed, cell_size, density)
+            }
+        }
+    } else {
+        // 没有扩展名，默认使用JSON格式
+        save_game_state(path, grid, generation, update_speed, cell_size, density)
+    }
+}
+
+/// 加载结果枚举
+pub enum LoadResult {
+    /// JSON/GOL格式的游戏状态
+    GameState(GameState),
+    /// RLE格式的图案
+    RlePattern(rle::RlePattern),
+}
+
+/// 统一的文件加载接口 - 根据文件扩展名自动选择格式
+pub fn load_file<P: AsRef<Path>>(path: P) -> Result<LoadResult, SaveLoadError> {
+    let path = path.as_ref();
+    
+    if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
+        match extension.to_lowercase().as_str() {
+            "rle" => {
+                let pattern = rle::import_rle_file(path)
+                    .map_err(|e| SaveLoadError::InvalidGameState(e.to_string()))?;
+                Ok(LoadResult::RlePattern(pattern))
+            }
+            _ => {
+                // 默认使用JSON/GOL格式
+                let game_state = load_game_state(path)?;
+                Ok(LoadResult::GameState(game_state))
+            }
+        }
+    } else {
+        // 没有扩展名，尝试JSON格式
+        let game_state = load_game_state(path)?;
+        Ok(LoadResult::GameState(game_state))
+    }
 }
 
 

@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 // 导入游戏逻辑模块
 mod game;
 mod patterns;

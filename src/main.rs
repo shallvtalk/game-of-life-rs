@@ -39,6 +39,8 @@ struct GameOfLifeApp {
     save_load_status: Option<String>,
     /// 状态信息显示的时间戳
     status_timestamp: Option<std::time::Instant>,
+    /// 缩放级别（1.0为默认大小）
+    zoom_level: f32,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -69,6 +71,7 @@ impl Default for GameOfLifeApp {
             generation: 0,      // 初始代数为0
             save_load_status: None, // 初始状态无保存/加载信息
             status_timestamp: None, // 初始状态无时间戳
+            zoom_level: 1.0,    // 默认缩放级别
         }
     }
 }
@@ -88,6 +91,25 @@ impl GameOfLifeApp {
                 self.status_timestamp = None;
             }
         }
+    }
+
+    /// 调整缩放级别
+    fn set_zoom(&mut self, new_zoom: f32) {
+        self.zoom_level = new_zoom.clamp(0.1, 5.0); // 限制缩放范围在0.1到5.0之间
+    }
+
+    /// 获取当前有效的细胞大小（考虑缩放）
+    fn effective_cell_size(&self) -> f32 {
+        self.cell_size * self.zoom_level
+    }
+
+    /// 处理缩放操作
+    fn handle_zoom(&mut self, delta: f32, _mouse_pos: Option<egui::Pos2>) {
+        let old_zoom = self.zoom_level;
+        self.set_zoom(old_zoom + delta * 1.0);
+
+        // 可以在这里添加基于鼠标位置的智能缩放中心点
+        // 暂时保持简单的实现
     }
 
     /// 保存游戏状态到文件

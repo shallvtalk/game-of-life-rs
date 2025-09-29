@@ -12,6 +12,11 @@ impl GameOfLifeApp {
 
         // 显示当前迭代次数
         ui.label(format!("Generation: {}", self.generation));
+        
+        // 显示控制提示
+        ui.label(egui::RichText::new("💡 Ctrl+Scroll: zoom | Drag: draw")
+                .size(10.0)
+                .color(egui::Color32::GRAY));
         ui.separator();
 
         self.render_game_controls(ui);
@@ -101,6 +106,25 @@ impl GameOfLifeApp {
         ui.label("Random Density:");
         ui.add(egui::Slider::new(&mut self.density, 0.0..=1.0));
 
+        ui.separator();
+
+        // 缩放控制
+        ui.label(format!("Zoom Level: {:.1}x", self.zoom_level));
+        if ui
+            .add(egui::Slider::new(&mut self.zoom_level, 0.1..=5.0).text("Zoom"))
+            .changed()
+        {
+            // 确保缩放级别在有效范围内
+            self.zoom_level = self.zoom_level.clamp(0.1, 5.0);
+        }
+
+        // 重置缩放按钮
+        if ui.button("Reset Zoom").clicked() {
+            self.zoom_level = 1.0;
+        }
+
+        ui.separator();
+
         // 应用网格设置按钮
         if ui.button("Apply Grid Settings").clicked() {
             // 创建新的网格并随机化
@@ -145,20 +169,41 @@ impl GameOfLifeApp {
 impl GameOfLifeApp {
     /// 渲染游戏网格并处理鼠标交互
     pub fn render_game_grid(&mut self, ui: &mut egui::Ui) {
-        // 分配绘图区域，大小根据网格尺寸和细胞大小计算
-        let (response, painter) = ui.allocate_painter(
-            egui::Vec2::new(
-                self.grid.width() as f32 * self.cell_size,
-                self.grid.height() as f32 * self.cell_size,
-            ),
-            egui::Sense::click_and_drag(), // 允许鼠标点击和拖动交互
+        // 计算有效的细胞大小（考虑缩放）
+        let effective_cell_size = self.effective_cell_size();
+        
+        // 计算总的网格大小
+        let total_grid_size = egui::Vec2::new(
+            self.grid.width() as f32 * effective_cell_size,
+            self.grid.height() as f32 * effective_cell_size,
         );
 
-        // 处理鼠标交互
-        self.handle_mouse_interaction(&response);
+        // 创建滚动区域
+        egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                // 分配绘图区域
+                let (response, painter) = ui.allocate_painter(
+                    total_grid_size,
+                    egui::Sense::click_and_drag(), // 允许鼠标点击和拖动交互
+                );
 
-        // 绘制网格
-        self.draw_grid(&response, &painter);
+                // 处理缩放（Ctrl + 鼠标滚轮）
+                if response.hovered() {
+                    let ctrl_pressed = ui.input(|i| i.modifiers.ctrl);
+                    let scroll_delta = ui.input(|i| i.raw_scroll_delta.y);
+                    if ctrl_pressed && scroll_delta != 0.0 {
+                        let mouse_pos = response.interact_pointer_pos();
+                        self.handle_zoom(scroll_delta * 0.001, mouse_pos);
+                    }
+                }
+
+                // 处理鼠标交互
+                self.handle_mouse_interaction(&response);
+
+                // 绘制网格
+                self.draw_grid(&response, &painter);
+            });
     }
 
     /// 处理鼠标交互事件
@@ -166,11 +211,11 @@ impl GameOfLifeApp {
         // 处理鼠标事件的辅助函数：将鼠标坐标转换为网格坐标
         let grid_width = self.grid.width();
         let grid_height = self.grid.height();
-        let cell_size = self.cell_size;
+        let effective_cell_size = self.effective_cell_size();
         let mouse_to_grid = |pos: egui::Pos2| -> Option<(usize, usize)> {
             let rect = response.rect;
-            let x = ((pos.x - rect.left()) / cell_size) as usize;
-            let y = ((pos.y - rect.top()) / cell_size) as usize;
+            let x = ((pos.x - rect.left()) / effective_cell_size) as usize;
+            let y = ((pos.y - rect.top()) / effective_cell_size) as usize;
             if x < grid_width && y < grid_height {
                 Some((x, y))
             } else {
@@ -226,14 +271,16 @@ impl GameOfLifeApp {
 
     /// 绘制游戏网格
     pub fn draw_grid(&self, response: &egui::Response, painter: &egui::Painter) {
+        let effective_cell_size = self.effective_cell_size();
+        
         // 绘制网格中的每个细胞
         for y in 0..self.grid.height() {
             for x in 0..self.grid.width() {
                 // 计算每个细胞的绘制矩形
                 let rect = egui::Rect::from_min_size(
                     response.rect.left_top()
-                        + egui::Vec2::new(x as f32 * self.cell_size, y as f32 * self.cell_size),
-                    egui::Vec2::splat(self.cell_size),
+                        + egui::Vec2::new(x as f32 * effective_cell_size, y as f32 * effective_cell_size),
+                    egui::Vec2::splat(effective_cell_size),
                 );
 
                 // 根据细胞状态选择颜色
@@ -244,8 +291,9 @@ impl GameOfLifeApp {
 
                 // 绘制填充的矩形（细胞）
                 painter.rect_filled(rect, 0.0, color);
-                // 绘制边框线
-                painter.rect_stroke(rect, 0.0, egui::Stroke::new(0.5, egui::Color32::GRAY));
+                // 绘制边框线（根据缩放级别调整线条粗细）
+                let line_width = if effective_cell_size < 5.0 { 0.2 } else { 0.5 };
+                painter.rect_stroke(rect, 0.0, egui::Stroke::new(line_width, egui::Color32::GRAY));
             }
         }
     }

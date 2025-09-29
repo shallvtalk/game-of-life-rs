@@ -52,6 +52,12 @@ struct GameOfLifeApp {
     color_theme: ColorTheme,
     /// 是否显示网格线
     show_grid_lines: bool,
+    /// 主题切换动画进度 (0.0 到 1.0)
+    theme_transition_progress: f32,
+    /// 主题切换开始时间
+    theme_transition_start: Option<std::time::Instant>,
+    /// 目标主题（用于动画过渡）
+    target_theme: ColorTheme,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -85,6 +91,9 @@ impl Default for GameOfLifeApp {
             zoom_level: 1.0,    // 默认缩放级别
             color_theme: ColorTheme::Light, // 默认浅色主题
             show_grid_lines: true, // 默认显示网格线
+            theme_transition_progress: 1.0, // 初始无动画
+            theme_transition_start: None,   // 初始无动画
+            target_theme: ColorTheme::Light, // 初始目标主题与当前主题相同
         }
     }
 }
@@ -125,25 +134,103 @@ impl GameOfLifeApp {
         // 暂时保持简单的实现
     }
 
-    /// 获取当前主题的颜色配置
+    /// 颜色插值函数
+    fn lerp_color(from: egui::Color32, to: egui::Color32, t: f32) -> egui::Color32 {
+        let t = t.clamp(0.0, 1.0);
+        egui::Color32::from_rgb(
+            (from.r() as f32 * (1.0 - t) + to.r() as f32 * t) as u8,
+            (from.g() as f32 * (1.0 - t) + to.g() as f32 * t) as u8,
+            (from.b() as f32 * (1.0 - t) + to.b() as f32 * t) as u8,
+        )
+    }
+
+    /// 获取当前主题的颜色配置（支持动画过渡）
     fn get_theme_colors(&self) -> (egui::Color32, egui::Color32, egui::Color32) {
-        match self.color_theme {
-            ColorTheme::Light => (
-                egui::Color32::BLACK, // 存活细胞
-                egui::Color32::WHITE, // 死亡细胞
-                egui::Color32::GRAY,  // 网格线
-            ),
-            ColorTheme::Dark => (
-                egui::Color32::WHITE,           // 存活细胞
-                egui::Color32::from_rgb(30, 30, 30), // 死亡细胞
-                egui::Color32::from_rgb(60, 60, 60), // 网格线
-            ),
+        let light_colors = (
+            egui::Color32::BLACK, // 存活细胞
+            egui::Color32::WHITE, // 死亡细胞
+            egui::Color32::GRAY,  // 网格线
+        );
+        let dark_colors = (
+            egui::Color32::WHITE,           // 存活细胞
+            egui::Color32::from_rgb(30, 30, 30), // 死亡细胞
+            egui::Color32::from_rgb(60, 60, 60), // 网格线
+        );
+
+        // 如果正在进行主题切换动画
+        if self.theme_transition_progress < 1.0 {
+            let (from_colors, to_colors) = match self.target_theme {
+                ColorTheme::Dark => (light_colors, dark_colors),
+                ColorTheme::Light => (dark_colors, light_colors),
+            };
+
+            (
+                Self::lerp_color(from_colors.0, to_colors.0, self.theme_transition_progress),
+                Self::lerp_color(from_colors.1, to_colors.1, self.theme_transition_progress),
+                Self::lerp_color(from_colors.2, to_colors.2, self.theme_transition_progress),
+            )
+        } else {
+            match self.color_theme {
+                ColorTheme::Light => light_colors,
+                ColorTheme::Dark => dark_colors,
+            }
         }
     }
 
-    /// 设置UI主题
+    /// 开始主题切换动画
+    pub fn start_theme_transition(&mut self, new_theme: ColorTheme) {
+        if new_theme != self.color_theme {
+            self.target_theme = new_theme;
+            self.theme_transition_start = Some(std::time::Instant::now());
+            self.theme_transition_progress = 0.0;
+        }
+    }
+
+    /// 更新主题切换动画
+    fn update_theme_transition(&mut self) {
+        if let Some(start_time) = self.theme_transition_start {
+            const TRANSITION_DURATION: f32 = 0.3; // 300ms 动画时长
+            let elapsed = start_time.elapsed().as_secs_f32();
+            self.theme_transition_progress = (elapsed / TRANSITION_DURATION).min(1.0);
+
+            // 使用缓动函数让动画更自然
+            let eased_progress = self.ease_in_out_cubic(self.theme_transition_progress);
+            self.theme_transition_progress = eased_progress;
+
+            // 动画完成后更新主题
+            if self.theme_transition_progress >= 1.0 {
+                self.color_theme = self.target_theme;
+                self.theme_transition_start = None;
+                self.theme_transition_progress = 1.0;
+            }
+        }
+    }
+
+    /// 缓动函数：缓入缓出立方
+    fn ease_in_out_cubic(&self, t: f32) -> f32 {
+        if t < 0.5 {
+            4.0 * t * t * t
+        } else {
+            1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+        }
+    }
+
+    /// 设置UI主题（支持动画过渡）
     fn set_ui_theme(&self, ctx: &egui::Context) {
-        match self.color_theme {
+        // 在动画过程中，根据进度选择UI主题
+        let ui_theme = if self.theme_transition_progress < 1.0 {
+            if self.theme_transition_progress < 0.5 {
+                // 前半段使用当前主题
+                self.color_theme
+            } else {
+                // 后半段使用目标主题
+                self.target_theme
+            }
+        } else {
+            self.color_theme
+        };
+
+        match ui_theme {
             ColorTheme::Light => {
                 ctx.set_visuals(egui::Visuals::light());
             }
@@ -227,6 +314,9 @@ impl eframe::App for GameOfLifeApp {
     /// * `ctx` - egui上下文，用于创建UI和控制重绘
     /// * `_frame` - 窗口框架信息（本例中未使用）
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // 更新主题切换动画
+        self.update_theme_transition();
+        
         // 应用UI主题
         self.set_ui_theme(ctx);
         
@@ -254,6 +344,11 @@ impl eframe::App for GameOfLifeApp {
         // 如果游戏正在运行，请求在下一个更新间隔后重绘
         if self.is_running {
             ctx.request_repaint_after(self.update_interval);
+        }
+        
+        // 如果正在进行主题切换动画，请求持续重绘
+        if self.theme_transition_progress < 1.0 {
+            ctx.request_repaint();
         }
     }
 }

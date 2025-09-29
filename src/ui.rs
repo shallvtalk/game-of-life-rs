@@ -8,36 +8,50 @@ use eframe::egui;
 impl GameOfLifeApp {
     /// 渲染左侧控制面板
     pub fn render_control_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Conway's Game of Life");
+        // 添加垂直滚动区域包装整个控制面板
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, true])
+            .show(ui, |ui| {
+                ui.heading("Conway's Game of Life");
 
-        // 显示当前迭代次数
-        ui.label(format!("Generation: {}", self.generation));
-        
-        // 显示控制提示
-        ui.label(egui::RichText::new("Ctrl+Scroll: zoom | Drag: draw")
-                .size(10.0)
-                .color(egui::Color32::GRAY));
-        ui.separator();
+                // 显示当前迭代次数
+                ui.label(format!("Generation: {}", self.generation));
+                
+                // 显示控制提示
+                ui.label(egui::RichText::new("Ctrl+Scroll: zoom | Drag: draw")
+                        .size(10.0)
+                        .color(egui::Color32::GRAY));
+                ui.separator();
 
-        // 游戏控制区域
-        ui.collapsing("Game Controls", |ui| {
-            self.render_game_controls(ui);
-        });
+                // 游戏控制区域
+                ui.collapsing("Game Controls", |ui| {
+                    self.render_game_controls(ui);
+                });
 
-        // 视觉设置区域
-        ui.collapsing("Visual Settings", |ui| {
-            self.render_visual_settings(ui);
-        });
+                ui.add_space(5.0);
 
-        // 模拟设置区域
-        ui.collapsing("Simulation Settings", |ui| {
-            self.render_simulation_settings(ui);
-        });
+                // 视觉设置区域
+                ui.collapsing("Visual Settings", |ui| {
+                    self.render_visual_settings(ui);
+                });
 
-        // 预设图案区域
-        ui.collapsing("Pattern Presets", |ui| {
-            self.render_presets_panel(ui);
-        });
+                ui.add_space(5.0);
+
+                // 模拟设置区域
+                ui.collapsing("Simulation Settings", |ui| {
+                    self.render_simulation_settings(ui);
+                });
+
+                ui.add_space(5.0);
+
+                // 预设图案区域
+                ui.collapsing("Pattern Presets", |ui| {
+                    self.render_presets_panel(ui);
+                });
+
+                // 在面板底部添加一些额外空间
+                ui.add_space(20.0);
+            });
     }
 
     /// 渲染游戏控制按钮
@@ -105,10 +119,10 @@ impl GameOfLifeApp {
         ui.label("Color Theme:");
         ui.horizontal(|ui| {
             if ui.selectable_label(self.color_theme == ColorTheme::Light, "Light").clicked() {
-                self.color_theme = ColorTheme::Light;
+                self.start_theme_transition(ColorTheme::Light);
             }
             if ui.selectable_label(self.color_theme == ColorTheme::Dark, "Dark").clicked() {
-                self.color_theme = ColorTheme::Dark;
+                self.start_theme_transition(ColorTheme::Dark);
             }
         });
 
@@ -176,32 +190,26 @@ impl GameOfLifeApp {
 
     /// 渲染预设面板
     pub fn render_presets_panel(&mut self, ui: &mut egui::Ui) {
-        ui.separator();
-        ui.heading("Presets");
-
-        // 使用新的预设系统
-        egui::ScrollArea::vertical()
-            .max_height(300.0)
-            .show(ui, |ui| {
-                for (category_name, patterns) in patterns::get_all_patterns() {
-                    ui.collapsing(category_name, |ui| {
-                        for pattern in patterns {
-                            if ui.button(pattern.name).clicked() {
-                                // 计算居中位置
-                                let center_x =
-                                    (self.grid.width().saturating_sub(pattern.data[0].len())) / 2;
-                                let center_y =
-                                    (self.grid.height().saturating_sub(pattern.data.len())) / 2;
-                                self.grid.load_pattern(pattern.data, center_x, center_y);
-                                self.generation = 0; // 重置代数计数
-                            }
-                            // 显示图案描述
-                            ui.label(egui::RichText::new(pattern.description).small().italics());
-                            ui.separator();
-                        }
-                    });
+        // 直接渲染预设列表，不需要单独的滚动区域
+        // 因为整个控制面板已经有滚动了
+        for (category_name, patterns) in patterns::get_all_patterns() {
+            ui.collapsing(category_name, |ui| {
+                for pattern in patterns {
+                    if ui.button(pattern.name).clicked() {
+                        // 计算居中位置
+                        let center_x =
+                            (self.grid.width().saturating_sub(pattern.data[0].len())) / 2;
+                        let center_y =
+                            (self.grid.height().saturating_sub(pattern.data.len())) / 2;
+                        self.grid.load_pattern(pattern.data, center_x, center_y);
+                        self.generation = 0; // 重置代数计数
+                    }
+                    // 显示图案描述
+                    ui.label(egui::RichText::new(pattern.description).small().italics());
+                    ui.add_space(3.0);
                 }
             });
+        }
     }
 }
 

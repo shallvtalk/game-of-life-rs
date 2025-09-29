@@ -6,6 +6,11 @@ A Rust implementation of Conway's Game of Life with a graphical user interface b
 
 - **Interactive GUI**: Modern, responsive interface with real-time controls
 - **Mouse Interaction**: Click and drag to draw living cells directly on the grid
+- **Save/Load System**: ✅ **IMPLEMENTED** - Save and load game states to/from files
+  - Support for .gol and .json file formats
+  - Preserves grid state, generation count, and all settings
+  - File dialog integration for easy file management
+  - Comprehensive error handling and status feedback
 - **Rich Presets**: Extensive collection of classic patterns including:
   - **Oscillators**: Blinker, Toad, Beacon, Pulsar, Pentadecathlon
   - **Spaceships**: Glider, LWSS, MWSS, HWSS
@@ -51,6 +56,8 @@ cargo run --release
 - **Step**: Advance the simulation by one generation
 - **Clear**: Remove all living cells from the grid
 - **Random**: Populate the grid with random living cells
+- **Save**: Save current game state to a file (.gol or .json format)
+- **Load**: Load a previously saved game state from file
 
 ### Mouse Interaction
 
@@ -62,6 +69,18 @@ cargo run --release
 - **Update Speed**: Control simulation speed (1-30 FPS)
 - **Grid Size**: Adjust grid dimensions (10-200 width, 10-150 height)
 - **Random Density**: Set the probability of cells being alive when randomizing
+
+### Save/Load Functionality
+
+Preserve and share your game states:
+- **Save**: Click the Save button to export your current game state
+  - Choose between .gol (Game of Life) or .json file formats
+  - Saves grid state, generation count, and all current settings
+  - Default filename: `game_state.gol`
+- **Load**: Click the Load button to import a previously saved game
+  - Supports both .gol and .json file formats
+  - Automatically restores all game settings and grid configuration
+  - Status messages confirm successful operations or report errors
 
 ### Presets
 
@@ -77,7 +96,8 @@ src/
 ├── main.rs         # Application entry point and core structure
 ├── game.rs         # Game logic and Conway's Game of Life rules
 ├── ui.rs           # User interface rendering and interaction
-└── patterns.rs     # Preset pattern definitions
+├── patterns.rs     # Preset pattern definitions
+└── save_load.rs    # Save/load functionality with JSON serialization
 ```
 
 ## Technical Details
@@ -85,7 +105,10 @@ src/
 - **Framework**: Built with egui/eframe for cross-platform GUI
 - **Architecture**: Modular design with clear separation of concerns
 - **Performance**: Optimized for smooth real-time simulation
-- **Memory**: Efficient grid representation using Vec<Vec<CellState>>
+- **Memory**: Efficient grid representation using 1D vector for better cache performance
+- **Serialization**: JSON-based save/load system using serde
+- **File Management**: Native file dialogs with rfd crate
+- **Dependencies**: serde, serde_json, rfd, chrono for enhanced functionality
 
 ## Contributing
 
@@ -127,8 +150,8 @@ These simple rules create surprisingly complex and beautiful patterns!
 ### Core Feature Enhancements / 核心功能增强
 
 #### Save/Load Functionality / 保存/加载功能
-- Save current grid state to file (JSON/binary format) / 将当前网格状态保存为文件（JSON/二进制格式）
-- Load previously saved game states / 从文件加载之前保存的游戏状态
+- ✅ **COMPLETED** Save current grid state to file (JSON format) / 将当前网格状态保存为文件（JSON格式）
+- ✅ **COMPLETED** Load previously saved game states / 从文件加载之前保存的游戏状态
 - Support RLE format import/export (Game of Life standard) / 支持RLE格式导入/导出（生命游戏标准格式）
 
 #### History and Playback / 历史记录和回放
@@ -188,7 +211,7 @@ These simple rules create surprisingly complex and beautiful patterns!
 
 ### Recommended Implementation Priority / 推荐实现优先级
 
-1. **Save/Load Functionality** - Essential for preserving work / 保存/加载功能 - 保存工作的基础需求
+1. ✅ **COMPLETED: Save/Load Functionality** - Essential for preserving work / 保存/加载功能 - 保存工作的基础需求
 2. **Zoom and Visual Improvements** - Better user experience / 缩放和视觉改进 - 更好的用户体验
 3. **History and Playback** - Practical utility / 历史记录回放 - 实用功能
 4. **Statistics and Analysis** - Educational value / 统计和分析 - 教育价值

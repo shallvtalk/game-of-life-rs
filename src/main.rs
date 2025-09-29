@@ -8,6 +8,13 @@ mod ui;
 use eframe::egui;
 use game::{CellState, Grid};
 
+/// 颜色主题枚举
+#[derive(Clone, Copy, PartialEq)]
+enum ColorTheme {
+    Light,
+    Dark,
+}
+
 /// 康威生命游戏应用程序的主结构体
 /// 包含游戏状态、UI设置和控制参数
 struct GameOfLifeApp {
@@ -41,6 +48,10 @@ struct GameOfLifeApp {
     status_timestamp: Option<std::time::Instant>,
     /// 缩放级别（1.0为默认大小）
     zoom_level: f32,
+    /// 当前颜色主题
+    color_theme: ColorTheme,
+    /// 是否显示网格线
+    show_grid_lines: bool,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -72,6 +83,8 @@ impl Default for GameOfLifeApp {
             save_load_status: None, // 初始状态无保存/加载信息
             status_timestamp: None, // 初始状态无时间戳
             zoom_level: 1.0,    // 默认缩放级别
+            color_theme: ColorTheme::Light, // 默认浅色主题
+            show_grid_lines: true, // 默认显示网格线
         }
     }
 }
@@ -110,6 +123,34 @@ impl GameOfLifeApp {
 
         // 可以在这里添加基于鼠标位置的智能缩放中心点
         // 暂时保持简单的实现
+    }
+
+    /// 获取当前主题的颜色配置
+    fn get_theme_colors(&self) -> (egui::Color32, egui::Color32, egui::Color32) {
+        match self.color_theme {
+            ColorTheme::Light => (
+                egui::Color32::BLACK, // 存活细胞
+                egui::Color32::WHITE, // 死亡细胞
+                egui::Color32::GRAY,  // 网格线
+            ),
+            ColorTheme::Dark => (
+                egui::Color32::WHITE,           // 存活细胞
+                egui::Color32::from_rgb(30, 30, 30), // 死亡细胞
+                egui::Color32::from_rgb(60, 60, 60), // 网格线
+            ),
+        }
+    }
+
+    /// 设置UI主题
+    fn set_ui_theme(&self, ctx: &egui::Context) {
+        match self.color_theme {
+            ColorTheme::Light => {
+                ctx.set_visuals(egui::Visuals::light());
+            }
+            ColorTheme::Dark => {
+                ctx.set_visuals(egui::Visuals::dark());
+            }
+        }
     }
 
     /// 保存游戏状态到文件
@@ -186,6 +227,9 @@ impl eframe::App for GameOfLifeApp {
     /// * `ctx` - egui上下文，用于创建UI和控制重绘
     /// * `_frame` - 窗口框架信息（本例中未使用）
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // 应用UI主题
+        self.set_ui_theme(ctx);
+        
         // 更新状态信息（清除过期的状态）
         self.update_status();
 

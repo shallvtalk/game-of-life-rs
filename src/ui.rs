@@ -1,27 +1,43 @@
 use crate::game::CellState;
 /// UI组件模块
 /// 包含所有用户界面相关的渲染和交互逻辑
-use crate::{patterns, GameOfLifeApp};
+use crate::{patterns, GameOfLifeApp, ColorTheme};
 use eframe::egui;
 
 /// 控制面板相关的UI渲染
 impl GameOfLifeApp {
     /// 渲染左侧控制面板
     pub fn render_control_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Controls");
+        ui.heading("Conway's Game of Life");
 
         // 显示当前迭代次数
         ui.label(format!("Generation: {}", self.generation));
         
         // 显示控制提示
-        ui.label(egui::RichText::new("💡 Ctrl+Scroll: zoom | Drag: draw")
+        ui.label(egui::RichText::new("Ctrl+Scroll: zoom | Drag: draw")
                 .size(10.0)
                 .color(egui::Color32::GRAY));
         ui.separator();
 
-        self.render_game_controls(ui);
-        self.render_settings_panel(ui);
-        self.render_presets_panel(ui);
+        // 游戏控制区域
+        ui.collapsing("Game Controls", |ui| {
+            self.render_game_controls(ui);
+        });
+
+        // 视觉设置区域
+        ui.collapsing("Visual Settings", |ui| {
+            self.render_visual_settings(ui);
+        });
+
+        // 模拟设置区域
+        ui.collapsing("Simulation Settings", |ui| {
+            self.render_simulation_settings(ui);
+        });
+
+        // 预设图案区域
+        ui.collapsing("Pattern Presets", |ui| {
+            self.render_presets_panel(ui);
+        });
     }
 
     /// 渲染游戏控制按钮
@@ -44,6 +60,8 @@ impl GameOfLifeApp {
             }
         });
 
+        ui.add_space(5.0);
+
         // 网格操作按钮（水平布局）
         ui.horizontal(|ui| {
             // 清空网格按钮
@@ -58,6 +76,8 @@ impl GameOfLifeApp {
                 self.generation = 0; // 重置代数计数
             }
         });
+
+        ui.add_space(5.0);
 
         // 文件操作按钮（水平布局）
         ui.horizontal(|ui| {
@@ -74,39 +94,30 @@ impl GameOfLifeApp {
 
         // 显示保存/加载状态信息
         if let Some(status) = &self.save_load_status {
-            ui.separator();
+            ui.add_space(5.0);
             ui.label(egui::RichText::new(status).small().color(egui::Color32::GRAY));
         }
     }
 
-    /// 渲染设置面板
-    pub fn render_settings_panel(&mut self, ui: &mut egui::Ui) {
-        ui.separator();
-        ui.heading("Settings");
+    /// 渲染视觉设置面板
+    pub fn render_visual_settings(&mut self, ui: &mut egui::Ui) {
+        // 颜色主题选择
+        ui.label("Color Theme:");
+        ui.horizontal(|ui| {
+            if ui.selectable_label(self.color_theme == ColorTheme::Light, "Light").clicked() {
+                self.color_theme = ColorTheme::Light;
+            }
+            if ui.selectable_label(self.color_theme == ColorTheme::Dark, "Dark").clicked() {
+                self.color_theme = ColorTheme::Dark;
+            }
+        });
 
-        // 更新速度调节滑块
-        ui.label("Update Speed (FPS):");
-        if ui
-            .add(egui::Slider::new(&mut self.update_speed, 1.0..=30.0))
-            .changed()
-        {
-            // 当速度改变时，重新计算更新间隔
-            self.update_interval =
-                std::time::Duration::from_millis((1000.0 / self.update_speed) as u64);
-        }
+        ui.add_space(5.0);
 
-        // 网格尺寸调节滑块
-        ui.label("Grid Width:");
-        ui.add(egui::Slider::new(&mut self.grid_width, 10..=200));
+        // 网格线显示开关
+        ui.checkbox(&mut self.show_grid_lines, "Show Grid Lines");
 
-        ui.label("Grid Height:");
-        ui.add(egui::Slider::new(&mut self.grid_height, 10..=150));
-
-        // 随机密度调节滑块
-        ui.label("Random Density:");
-        ui.add(egui::Slider::new(&mut self.density, 0.0..=1.0));
-
-        ui.separator();
+        ui.add_space(5.0);
 
         // 缩放控制
         ui.label(format!("Zoom Level: {:.1}x", self.zoom_level));
@@ -122,8 +133,37 @@ impl GameOfLifeApp {
         if ui.button("Reset Zoom").clicked() {
             self.zoom_level = 1.0;
         }
+    }
 
-        ui.separator();
+    /// 渲染模拟设置面板
+    pub fn render_simulation_settings(&mut self, ui: &mut egui::Ui) {
+        // 更新速度调节滑块
+        ui.label("Update Speed (FPS):");
+        if ui
+            .add(egui::Slider::new(&mut self.update_speed, 1.0..=30.0))
+            .changed()
+        {
+            // 当速度改变时，重新计算更新间隔
+            self.update_interval =
+                std::time::Duration::from_millis((1000.0 / self.update_speed) as u64);
+        }
+
+        ui.add_space(5.0);
+
+        // 网格尺寸调节滑块
+        ui.label("Grid Width:");
+        ui.add(egui::Slider::new(&mut self.grid_width, 10..=200));
+
+        ui.label("Grid Height:");
+        ui.add(egui::Slider::new(&mut self.grid_height, 10..=150));
+
+        ui.add_space(5.0);
+
+        // 随机密度调节滑块
+        ui.label("Random Density:");
+        ui.add(egui::Slider::new(&mut self.density, 0.0..=1.0));
+
+        ui.add_space(10.0);
 
         // 应用网格设置按钮
         if ui.button("Apply Grid Settings").clicked() {
@@ -272,6 +312,7 @@ impl GameOfLifeApp {
     /// 绘制游戏网格
     pub fn draw_grid(&self, response: &egui::Response, painter: &egui::Painter) {
         let effective_cell_size = self.effective_cell_size();
+        let (alive_color, dead_color, grid_line_color) = self.get_theme_colors();
         
         // 绘制网格中的每个细胞
         for y in 0..self.grid.height() {
@@ -283,17 +324,20 @@ impl GameOfLifeApp {
                     egui::Vec2::splat(effective_cell_size),
                 );
 
-                // 根据细胞状态选择颜色
+                // 根据细胞状态和主题选择颜色
                 let color = match self.grid.get_cell(x, y) {
-                    CellState::Alive => egui::Color32::BLACK, // 存活细胞显示为黑色
-                    CellState::Dead => egui::Color32::WHITE,  // 死亡细胞显示为白色
+                    CellState::Alive => alive_color,
+                    CellState::Dead => dead_color,
                 };
 
                 // 绘制填充的矩形（细胞）
                 painter.rect_filled(rect, 0.0, color);
-                // 绘制边框线（根据缩放级别调整线条粗细）
-                let line_width = if effective_cell_size < 5.0 { 0.2 } else { 0.5 };
-                painter.rect_stroke(rect, 0.0, egui::Stroke::new(line_width, egui::Color32::GRAY));
+                
+                // 根据设置决定是否绘制网格线
+                if self.show_grid_lines {
+                    let line_width = if effective_cell_size < 5.0 { 0.2 } else { 0.5 };
+                    painter.rect_stroke(rect, 0.0, egui::Stroke::new(line_width, grid_line_color));
+                }
             }
         }
     }

@@ -80,6 +80,17 @@ cargo run --release
 
 - **Click**: Toggle individual cells between alive and dead
 - **Click and Drag**: Draw continuous patterns by dragging across the grid
+- **Ctrl + Mouse Wheel**: Zoom in/out on the grid
+
+### Keyboard Shortcuts
+
+- **Space**: Start/Pause the simulation
+- **S**: Step forward one generation
+- **C**: Clear all cells from the grid
+- **R**: Randomize the grid with current density setting
+- **T**: Toggle between light and dark themes
+- **Ctrl + S**: Save current game state to file
+- **Ctrl + O**: Load game state from file
 
 ### Configuration
 

@@ -5,17 +5,16 @@ mod game;
 mod patterns;
 mod save_load;
 mod ui;
+mod statistics;
+mod theme;
+mod ui_state;
 
 // 导入所需的外部crate
 use eframe::egui;
 use game::{CellState, Grid};
-
-/// 颜色主题枚举
-#[derive(Clone, Copy, PartialEq)]
-enum ColorTheme {
-    Light,
-    Dark,
-}
+use statistics::PopulationStatistics;
+use theme::{ColorTheme, ThemeManager};
+use ui_state::UiStateManager;
 
 /// 康威生命游戏应用程序的主结构体
 /// 包含游戏状态、UI设置和控制参数
@@ -24,8 +23,6 @@ struct GameOfLifeApp {
     grid: Grid,
     /// 游戏是否正在运行（自动更新）
     is_running: bool,
-    /// 每个细胞在屏幕上的显示大小（像素）
-    cell_size: f32,
     /// 上次更新的时间戳，用于控制更新频率
     last_update: std::time::Instant,
     /// 更新间隔时间
@@ -38,34 +35,15 @@ struct GameOfLifeApp {
     update_speed: f32,
     /// 随机化时的细胞密度
     density: f32,
-    /// 跟踪是否正在拖动绘制
-    is_dragging: bool,
-    /// 拖动时绘制的细胞状态（存活或死亡）
-    drag_state: Option<CellState>,
     /// 当前迭代次数（代数）
     generation: usize,
-    /// 保存/加载状态信息
-    save_load_status: Option<String>,
-    /// 状态信息显示的时间戳
-    status_timestamp: Option<std::time::Instant>,
-    /// 缩放级别（1.0为默认大小）
-    zoom_level: f32,
-    /// 当前颜色主题
-    color_theme: ColorTheme,
-    /// 是否显示网格线
-    show_grid_lines: bool,
-    /// 主题切换动画进度 (0.0 到 1.0)
-    theme_transition_progress: f32,
-    /// 主题切换开始时间
-    theme_transition_start: Option<std::time::Instant>,
-    /// 目标主题（用于动画过渡）
-    target_theme: ColorTheme,
-    /// 人口历史记录（最近的活细胞数量）
-    population_history: Vec<usize>,
-    /// 人口历史记录的最大长度
-    max_history_length: usize,
-    /// 是否显示统计信息
-    show_statistics: bool,
+    
+    /// 人口统计管理器
+    statistics: PopulationStatistics,
+    /// 主题管理器
+    theme_manager: ThemeManager,
+    /// UI状态管理器
+    ui_state: UiStateManager,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -81,35 +59,25 @@ impl Default for GameOfLifeApp {
         let density = 0.3;
         grid.randomize(density);
 
-        // 初始化人口历史记录
+        // 初始化人口统计
+        let mut statistics = PopulationStatistics::new(200);
         let initial_population = grid.count_alive_cells();
-        let mut population_history = Vec::new();
-        population_history.push(initial_population);
+        statistics.add_population(initial_population);
 
         Self {
             grid,
             is_running: false,                      // 初始状态为暂停
-            cell_size: 10.0,                        // 每个细胞10像素大小
             last_update: std::time::Instant::now(), // 记录当前时间
             update_interval: std::time::Duration::from_millis(100), // 默认100ms更新一次（10 FPS）
             grid_width,
             grid_height,
             update_speed: 10.0, // 默认10 FPS
             density,
-            is_dragging: false, // 初始状态为非拖动
-            drag_state: None,   // 初始拖动状态为None
             generation: 0,      // 初始代数为0
-            save_load_status: None, // 初始状态无保存/加载信息
-            status_timestamp: None, // 初始状态无时间戳
-            zoom_level: 1.0,    // 默认缩放级别
-            color_theme: ColorTheme::Dark, // 默认浅色主题
-            show_grid_lines: true, // 默认显示网格线
-            theme_transition_progress: 1.0, // 初始无动画
-            theme_transition_start: None,   // 初始无动画
-            target_theme: ColorTheme::Dark, // 初始目标主题与当前主题相同
-            population_history,             // 使用预初始化的人口历史
-            max_history_length: 200,        // 最多保存200代历史
-            show_statistics: true,          // 默认显示统计信息
+            
+            statistics,
+            theme_manager: ThemeManager::new(ColorTheme::Dark),
+            ui_state: UiStateManager::new(),
         }
     }
 }
@@ -117,143 +85,43 @@ impl Default for GameOfLifeApp {
 impl GameOfLifeApp {
     /// 设置状态信息
     fn set_status(&mut self, message: String) {
-        self.save_load_status = Some(message);
-        self.status_timestamp = Some(std::time::Instant::now());
+        self.ui_state.set_status(message);
     }
 
     /// 检查并清除过期的状态信息
     fn update_status(&mut self) {
-        if let Some(timestamp) = self.status_timestamp {
-            if timestamp.elapsed() > std::time::Duration::from_secs(5) {
-                self.save_load_status = None;
-                self.status_timestamp = None;
-            }
-        }
+        self.ui_state.update_status();
     }
 
-    /// 调整缩放级别
-    fn set_zoom(&mut self, new_zoom: f32) {
-        self.zoom_level = new_zoom.clamp(0.1, 5.0); // 限制缩放范围在0.1到5.0之间
-    }
 
     /// 获取当前有效的细胞大小（考虑缩放）
     fn effective_cell_size(&self) -> f32 {
-        self.cell_size * self.zoom_level
+        self.ui_state.effective_cell_size()
     }
 
     /// 处理缩放操作
-    fn handle_zoom(&mut self, delta: f32, _mouse_pos: Option<egui::Pos2>) {
-        let old_zoom = self.zoom_level;
-        self.set_zoom(old_zoom + delta * 1.0);
-
-        // 可以在这里添加基于鼠标位置的智能缩放中心点
-        // 暂时保持简单的实现
-    }
-
-    /// 颜色插值函数
-    fn lerp_color(from: egui::Color32, to: egui::Color32, t: f32) -> egui::Color32 {
-        let t = t.clamp(0.0, 1.0);
-        egui::Color32::from_rgb(
-            (from.r() as f32 * (1.0 - t) + to.r() as f32 * t) as u8,
-            (from.g() as f32 * (1.0 - t) + to.g() as f32 * t) as u8,
-            (from.b() as f32 * (1.0 - t) + to.b() as f32 * t) as u8,
-        )
+    fn handle_zoom(&mut self, delta: f32, mouse_pos: Option<egui::Pos2>) {
+        self.ui_state.handle_zoom(delta, mouse_pos);
     }
 
     /// 获取当前主题的颜色配置（支持动画过渡）
     fn get_theme_colors(&self) -> (egui::Color32, egui::Color32, egui::Color32) {
-        let light_colors = (
-            egui::Color32::BLACK, // 存活细胞
-            egui::Color32::WHITE, // 死亡细胞
-            egui::Color32::GRAY,  // 网格线
-        );
-        let dark_colors = (
-            egui::Color32::WHITE,           // 存活细胞
-            egui::Color32::from_rgb(30, 30, 30), // 死亡细胞
-            egui::Color32::from_rgb(60, 60, 60), // 网格线
-        );
-
-        // 如果正在进行主题切换动画
-        if self.theme_transition_progress < 1.0 {
-            let (from_colors, to_colors) = match self.target_theme {
-                ColorTheme::Dark => (light_colors, dark_colors),
-                ColorTheme::Light => (dark_colors, light_colors),
-            };
-
-            (
-                Self::lerp_color(from_colors.0, to_colors.0, self.theme_transition_progress),
-                Self::lerp_color(from_colors.1, to_colors.1, self.theme_transition_progress),
-                Self::lerp_color(from_colors.2, to_colors.2, self.theme_transition_progress),
-            )
-        } else {
-            match self.color_theme {
-                ColorTheme::Light => light_colors,
-                ColorTheme::Dark => dark_colors,
-            }
-        }
+        self.theme_manager.get_theme_colors()
     }
 
     /// 开始主题切换动画
     pub fn start_theme_transition(&mut self, new_theme: ColorTheme) {
-        if new_theme != self.color_theme {
-            self.target_theme = new_theme;
-            self.theme_transition_start = Some(std::time::Instant::now());
-            self.theme_transition_progress = 0.0;
-        }
+        self.theme_manager.start_theme_transition(new_theme);
     }
 
     /// 更新主题切换动画
     fn update_theme_transition(&mut self) {
-        if let Some(start_time) = self.theme_transition_start {
-            const TRANSITION_DURATION: f32 = 0.3; // 300ms 动画时长
-            let elapsed = start_time.elapsed().as_secs_f32();
-            self.theme_transition_progress = (elapsed / TRANSITION_DURATION).min(1.0);
-
-            // 使用缓动函数让动画更自然
-            let eased_progress = self.ease_in_out_cubic(self.theme_transition_progress);
-            self.theme_transition_progress = eased_progress;
-
-            // 动画完成后更新主题
-            if self.theme_transition_progress >= 1.0 {
-                self.color_theme = self.target_theme;
-                self.theme_transition_start = None;
-                self.theme_transition_progress = 1.0;
-            }
-        }
-    }
-
-    /// 缓动函数：缓入缓出立方
-    fn ease_in_out_cubic(&self, t: f32) -> f32 {
-        if t < 0.5 {
-            4.0 * t * t * t
-        } else {
-            1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
-        }
+        self.theme_manager.update_theme_transition();
     }
 
     /// 设置UI主题（支持动画过渡）
     fn set_ui_theme(&self, ctx: &egui::Context) {
-        // 在动画过程中，根据进度选择UI主题
-        let ui_theme = if self.theme_transition_progress < 1.0 {
-            if self.theme_transition_progress < 0.5 {
-                // 前半段使用当前主题
-                self.color_theme
-            } else {
-                // 后半段使用目标主题
-                self.target_theme
-            }
-        } else {
-            self.color_theme
-        };
-
-        match ui_theme {
-            ColorTheme::Light => {
-                ctx.set_visuals(egui::Visuals::light());
-            }
-            ColorTheme::Dark => {
-                ctx.set_visuals(egui::Visuals::dark());
-            }
-        }
+        self.theme_manager.apply_ui_theme(ctx);
     }
 
     /// 保存游戏状态到文件
@@ -270,7 +138,7 @@ impl GameOfLifeApp {
                 &self.grid,
                 self.generation,
                 self.update_speed,
-                self.cell_size,
+                self.ui_state.cell_size(),
                 self.density,
             ) {
                 Ok(_) => {
@@ -301,7 +169,7 @@ impl GameOfLifeApp {
                             self.grid = grid;
                             self.generation = game_state.generation;
                             self.update_speed = game_state.settings.update_speed;
-                            self.cell_size = game_state.settings.cell_size;
+                            self.ui_state.set_cell_size(game_state.settings.cell_size);
                             self.density = game_state.settings.density;
                             self.grid_width = game_state.width;
                             self.grid_height = game_state.height;
@@ -369,17 +237,12 @@ impl GameOfLifeApp {
     /// 更新人口统计历史
     fn update_population_history(&mut self) {
         let current_population = self.grid.count_alive_cells();
-        self.population_history.push(current_population);
-        
-        // 保持历史记录在指定长度内
-        if self.population_history.len() > self.max_history_length {
-            self.population_history.remove(0);
-        }
+        self.statistics.add_population(current_population);
     }
 
     /// 清除人口统计历史
     pub fn clear_population_history(&mut self) {
-        self.population_history.clear();
+        self.statistics.clear_history();
     }
 
     /// 获取当前活细胞数量
@@ -389,7 +252,17 @@ impl GameOfLifeApp {
 
     /// 获取人口历史记录的引用
     pub fn get_population_history(&self) -> &Vec<usize> {
-        &self.population_history
+        self.statistics.get_history()
+    }
+
+    /// 获取统计显示状态
+    pub fn show_statistics(&self) -> bool {
+        self.statistics.is_statistics_visible()
+    }
+
+    /// 设置统计显示状态
+    pub fn set_show_statistics(&mut self, show: bool) {
+        self.statistics.set_statistics_visible(show);
     }
 
 }
@@ -412,6 +285,52 @@ impl eframe::App for GameOfLifeApp {
         // 更新状态信息（清除过期的状态）
         self.update_status();
 
+        // 处理键盘快捷键
+        ctx.input(|i| {
+            // T - 切换主题
+            if i.key_pressed(egui::Key::T) {
+                self.theme_manager.toggle_theme();
+            }
+            
+            // Space - 开始/暂停
+            if i.key_pressed(egui::Key::Space) {
+                self.is_running = !self.is_running;
+                self.last_update = std::time::Instant::now();
+            }
+            
+            // S - 单步执行
+            if i.key_pressed(egui::Key::S) {
+                self.grid.next_generation();
+                self.generation += 1;
+                self.update_population_history();
+            }
+            
+            // C - 清空网格
+            if i.key_pressed(egui::Key::C) {
+                self.grid.clear();
+                self.generation = 0;
+                self.clear_population_history();
+            }
+            
+            // R - 随机化
+            if i.key_pressed(egui::Key::R) {
+                self.grid.randomize(self.density);
+                self.generation = 0;
+                self.clear_population_history();
+                self.update_population_history();
+            }
+            
+            // Ctrl+S - 保存
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::S) {
+                self.save_game();
+            }
+            
+            // Ctrl+O - 加载
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::O) {
+                self.load_game();
+            }
+        });
+
         // 检查是否需要自动更新游戏状态
         if self.is_running && self.last_update.elapsed() >= self.update_interval {
             self.grid.next_generation(); // 计算下一代
@@ -427,7 +346,7 @@ impl eframe::App for GameOfLifeApp {
         });
 
         // 创建右侧统计面板（仅在显示统计时）
-        if self.show_statistics {
+        if self.show_statistics() {
             egui::SidePanel::right("statistics").show(ctx, |ui| {
                 self.render_statistics_panel(ui);
             });
@@ -444,7 +363,7 @@ impl eframe::App for GameOfLifeApp {
         }
 
         // 如果正在进行主题切换动画，请求持续重绘
-        if self.theme_transition_progress < 1.0 {
+        if self.theme_manager.is_transitioning() {
             ctx.request_repaint();
         }
     }

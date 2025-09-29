@@ -18,8 +18,17 @@ impl GameOfLifeApp {
                 ui.label(format!("Generation: {}", self.generation));
                 
                 // 显示控制提示
-                ui.label(egui::RichText::new("Ctrl+Scroll: zoom | Drag: draw")
-                        .size(10.0)
+                ui.label(egui::RichText::new("🎮 Controls:")
+                        .size(11.0)
+                        .strong());
+                ui.label(egui::RichText::new("Space: Play/Pause | S: Step | C: Clear | R: Random")
+                        .size(9.0)
+                        .color(egui::Color32::GRAY));
+                ui.label(egui::RichText::new("T: Theme | Ctrl+S: Save | Ctrl+O: Load")
+                        .size(9.0)
+                        .color(egui::Color32::GRAY));
+                ui.label(egui::RichText::new("Ctrl+Scroll: Zoom | Drag: Draw")
+                        .size(9.0)
                         .color(egui::Color32::GRAY));
                 ui.separator();
 
@@ -120,7 +129,7 @@ impl GameOfLifeApp {
         });
 
         // 显示保存/加载状态信息
-        if let Some(status) = &self.save_load_status {
+        if let Some(status) = self.ui_state.status_message() {
             ui.add_space(5.0);
             ui.label(egui::RichText::new(status).small().color(egui::Color32::GRAY));
         }
@@ -131,10 +140,11 @@ impl GameOfLifeApp {
         // 颜色主题选择
         ui.label("Color Theme:");
         ui.horizontal(|ui| {
-            if ui.selectable_label(self.color_theme == ColorTheme::Light, "Light").clicked() {
+            let current_theme = self.theme_manager.current_theme();
+            if ui.selectable_label(current_theme == ColorTheme::Light, "Light").clicked() {
                 self.start_theme_transition(ColorTheme::Light);
             }
-            if ui.selectable_label(self.color_theme == ColorTheme::Dark, "Dark").clicked() {
+            if ui.selectable_label(current_theme == ColorTheme::Dark, "Dark").clicked() {
                 self.start_theme_transition(ColorTheme::Dark);
             }
         });
@@ -142,23 +152,27 @@ impl GameOfLifeApp {
         ui.add_space(5.0);
 
         // 网格线显示开关
-        ui.checkbox(&mut self.show_grid_lines, "Show Grid Lines");
+        let mut show_grid_lines = self.ui_state.show_grid_lines();
+        if ui.checkbox(&mut show_grid_lines, "Show Grid Lines").changed() {
+            self.ui_state.set_show_grid_lines(show_grid_lines);
+        }
 
         ui.add_space(5.0);
 
         // 缩放控制
-        ui.label(format!("Zoom Level: {:.1}x", self.zoom_level));
+        let zoom_level = self.ui_state.zoom_level();
+        ui.label(format!("Zoom Level: {:.1}x", zoom_level));
+        let mut new_zoom = zoom_level;
         if ui
-            .add(egui::Slider::new(&mut self.zoom_level, 0.1..=5.0).text("Zoom"))
+            .add(egui::Slider::new(&mut new_zoom, 0.1..=5.0).text("Zoom"))
             .changed()
         {
-            // 确保缩放级别在有效范围内
-            self.zoom_level = self.zoom_level.clamp(0.1, 5.0);
+            self.ui_state.set_zoom_level(new_zoom);
         }
 
         // 重置缩放按钮
         if ui.button("Reset Zoom").clicked() {
-            self.zoom_level = 1.0;
+            self.ui_state.set_zoom_level(1.0);
         }
     }
 
@@ -292,24 +306,25 @@ impl GameOfLifeApp {
                 if let Some((x, y)) = mouse_to_grid(pos) {
                     // 开始拖动时，记住当前细胞的状态，并决定拖动时要绘制的状态
                     let current_state = self.grid.get_cell(x, y).clone();
-                    self.drag_state = Some(match current_state {
+                    let drag_state = match current_state {
                         CellState::Alive => CellState::Dead, // 如果当前是存活，拖动时绘制死亡
                         CellState::Dead => CellState::Alive, // 如果当前是死亡，拖动时绘制存活
-                    });
-                    self.is_dragging = true;
+                    };
+                    self.ui_state.set_drag_state(drag_state);
+                    self.ui_state.set_dragging(true);
                     // 设置第一个细胞的状态
-                    self.grid.set_cell(x, y, self.drag_state.clone().unwrap());
+                    self.grid.set_cell(x, y, drag_state);
                 }
             }
         }
 
         // 处理拖动过程中的事件
-        if self.is_dragging && response.dragged() {
+        if self.ui_state.is_dragging() && response.dragged() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some((x, y)) = mouse_to_grid(pos) {
                     // 在拖动过程中，将经过的细胞设置为拖动状态
-                    if let Some(state) = &self.drag_state {
-                        self.grid.set_cell(x, y, state.clone());
+                    if let Some(state) = self.ui_state.drag_state() {
+                        self.grid.set_cell(x, y, state);
                     }
                 }
             }
@@ -317,12 +332,11 @@ impl GameOfLifeApp {
 
         // 处理鼠标释放事件（结束拖动）
         if response.drag_stopped() {
-            self.is_dragging = false;
-            self.drag_state = None;
+            self.ui_state.set_dragging(false);
         }
 
         // 处理简单点击事件（非拖动）
-        if response.clicked() && !self.is_dragging {
+        if response.clicked() && !self.ui_state.is_dragging() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some((x, y)) = mouse_to_grid(pos) {
                     // 简单点击时切换细胞状态
@@ -357,7 +371,7 @@ impl GameOfLifeApp {
                 painter.rect_filled(rect, 0.0, color);
                 
                 // 根据设置决定是否绘制网格线
-                if self.show_grid_lines {
+                if self.ui_state.show_grid_lines() {
                     let line_width = if effective_cell_size < 5.0 { 0.2 } else { 0.5 };
                     painter.rect_stroke(rect, 0.0, egui::Stroke::new(line_width, grid_line_color));
                 }
@@ -374,7 +388,10 @@ impl GameOfLifeApp {
         ui.add_space(5.0);
         
         // 显示统计开关
-        ui.checkbox(&mut self.show_statistics, "Show Statistics Panel");
+        let mut show_statistics = self.show_statistics();
+        if ui.checkbox(&mut show_statistics, "Show Statistics Panel").changed() {
+            self.set_show_statistics(show_statistics);
+        }
         
         ui.add_space(5.0);
         
@@ -395,20 +412,41 @@ impl GameOfLifeApp {
         ui.label(format!("Current Live Cells: {}", current_population));
         
         // 显示历史记录长度
-        ui.label(format!("Generations Recorded: {}", self.population_history.len()));
+        ui.label(format!("Generations Recorded: {}", self.statistics.get_history_length()));
         
         // 显示最大和最小人口
-        if !self.population_history.is_empty() {
-            let max_pop = self.population_history.iter().max().unwrap_or(&0);
-            let min_pop = self.population_history.iter().min().unwrap_or(&0);
-            ui.label(format!("Max Population: {}", max_pop));
-            ui.label(format!("Min Population: {}", min_pop));
+        if self.statistics.has_data() {
+            if let Some(max_pop) = self.statistics.get_max_population() {
+                ui.label(format!("Max Population: {}", max_pop));
+            }
+            if let Some(min_pop) = self.statistics.get_min_population() {
+                ui.label(format!("Min Population: {}", min_pop));
+            }
+            if let Some(avg_pop) = self.statistics.get_average_population() {
+                ui.label(format!("Average Population: {:.1}", avg_pop));
+            }
+            
+            // 显示趋势信息
+            if let Some(trend) = self.statistics.get_population_trend(5) {
+                let trend_text = match trend {
+                    1 => "📈 Growing",
+                    -1 => "📉 Declining", 
+                    0 => "➡️ Stable",
+                    _ => "❓ Unknown"
+                };
+                ui.label(format!("Trend: {}", trend_text));
+            }
+            
+            // 显示稳定性
+            if self.statistics.is_stable(10, 5) {
+                ui.label("🔒 Population Stable");
+            }
         }
         
         ui.add_space(15.0);
         
         // 如果有历史数据，则绘制图表
-        if !self.population_history.is_empty() {
+        if self.statistics.has_data() {
             ui.label("Population History:");
             ui.add_space(5.0);
             self.render_population_chart(ui);

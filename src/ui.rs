@@ -51,6 +51,13 @@ impl GameOfLifeApp {
                     self.render_presets_panel(ui);
                 });
 
+                ui.add_space(5.0);
+
+                // 统计信息区域
+                ui.collapsing("Statistics", |ui| {
+                    self.render_statistics_controls(ui);
+                });
+
                 // 在面板底部添加一些额外空间
                 ui.add_space(20.0);
             });
@@ -73,6 +80,7 @@ impl GameOfLifeApp {
             if ui.button("Step").clicked() {
                 self.grid.next_generation();
                 self.generation += 1; // 单步时也要增加代数
+                self.update_population_history(); // 单步时也要更新统计
             }
         });
 
@@ -84,12 +92,15 @@ impl GameOfLifeApp {
             if ui.button("Clear").clicked() {
                 self.grid.clear();
                 self.generation = 0; // 重置代数计数
+                self.clear_population_history(); // 清除统计历史
             }
 
             // 随机化网格按钮
             if ui.button("Random").clicked() {
                 self.grid.randomize(self.density);
                 self.generation = 0; // 重置代数计数
+                self.clear_population_history(); // 清除统计历史
+                self.update_population_history(); // 记录初始人口
             }
         });
 
@@ -205,6 +216,8 @@ impl GameOfLifeApp {
                             (self.grid.height().saturating_sub(pattern.data.len())) / 2;
                         self.grid.load_pattern(pattern.data, center_x, center_y);
                         self.generation = 0; // 重置代数计数
+                        self.clear_population_history(); // 清除统计历史
+                        self.update_population_history(); // 记录初始人口
                     }
                     // 显示图案描述
                     ui.label(egui::RichText::new(pattern.description).small().italics());
@@ -350,5 +363,91 @@ impl GameOfLifeApp {
                 }
             }
         }
+    }
+
+    /// 渲染统计控制（在左侧面板中）
+    pub fn render_statistics_controls(&mut self, ui: &mut egui::Ui) {
+        // 显示当前活细胞数量
+        let current_population = self.get_current_population();
+        ui.label(format!("Live Cells: {}", current_population));
+        
+        ui.add_space(5.0);
+        
+        // 显示统计开关
+        ui.checkbox(&mut self.show_statistics, "Show Statistics Panel");
+        
+        ui.add_space(5.0);
+        
+        // 清除历史按钮
+        if ui.button("Clear History").clicked() {
+            self.clear_population_history();
+        }
+    }
+
+    /// 渲染统计信息面板（在右侧面板中）
+    pub fn render_statistics_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Population Statistics");
+        
+        ui.add_space(10.0);
+        
+        // 显示当前活细胞数量
+        let current_population = self.get_current_population();
+        ui.label(format!("Current Live Cells: {}", current_population));
+        
+        // 显示历史记录长度
+        ui.label(format!("Generations Recorded: {}", self.population_history.len()));
+        
+        // 显示最大和最小人口
+        if !self.population_history.is_empty() {
+            let max_pop = self.population_history.iter().max().unwrap_or(&0);
+            let min_pop = self.population_history.iter().min().unwrap_or(&0);
+            ui.label(format!("Max Population: {}", max_pop));
+            ui.label(format!("Min Population: {}", min_pop));
+        }
+        
+        ui.add_space(15.0);
+        
+        // 如果有历史数据，则绘制图表
+        if !self.population_history.is_empty() {
+            ui.label("Population History:");
+            ui.add_space(5.0);
+            self.render_population_chart(ui);
+        } else {
+            ui.label("No population data yet. Start the simulation to see the chart.");
+        }
+    }
+
+    /// 渲染人口增长图表
+    pub fn render_population_chart(&self, ui: &mut egui::Ui) {
+        use egui_plot::{Line, Plot, PlotPoints};
+        
+        let history = self.get_population_history();
+        if history.is_empty() {
+            return;
+        }
+        
+        // 准备图表数据
+        let points: PlotPoints = history
+            .iter()
+            .enumerate()
+            .map(|(i, &population)| [i as f64, population as f64])
+            .collect();
+        
+        let line = Line::new(points)
+            .color(egui::Color32::from_rgb(100, 200, 100))
+            .name("Population");
+        
+        // 创建图表
+        Plot::new("population_chart")
+            .view_aspect(1.5)
+            .height(200.0)
+            .allow_zoom(true)
+            .allow_drag(true)
+            .show_axes([true, true])
+            .x_axis_label("Generation")
+            .y_axis_label("Population")
+            .show(ui, |plot_ui| {
+                plot_ui.line(line);
+            });
     }
 }

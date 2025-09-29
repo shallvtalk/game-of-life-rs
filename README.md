@@ -17,6 +17,17 @@ A Rust implementation of Conway's Game of Life with a graphical user interface b
   - **Spaceships**: Glider, LWSS, MWSS, HWSS
   - **Guns**: Gosper Glider Gun, Simkin Glider Gun
   - **Miscellaneous**: R-Pentomino, Diehard, Acorn, Block
+- **Population Statistics**: ✅ **IMPLEMENTED** - Real-time population tracking and analysis
+  - Live cell count display in real-time
+  - Population history chart with interactive plotting
+  - Statistical analysis including max/min population tracking
+  - Dedicated statistics panel with zoom and drag capabilities
+  - Clear history functionality for fresh analysis
+- **Visual Enhancements**: ✅ **IMPLEMENTED** - Enhanced user interface features
+  - Theme switching with smooth animations (dark/light mode)
+  - Zoom functionality with mouse wheel support
+  - Grid line display toggle for better visibility
+  - Responsive layout with optimized panel arrangement
 - **Configurable Parameters**: Adjustable grid size, update speed, and cell density
 - **Generation Tracking**: Real-time display of current generation count
 - **Game Controls**: Play/pause, step-by-step execution, clear, and randomize
@@ -26,8 +37,10 @@ A Rust implementation of Conway's Game of Life with a graphical user interface b
 The game features a clean interface with:
 
 - Left sidebar for controls and presets
-- Central grid area for the game visualization
-- Real-time generation counter
+- Central grid area for the game visualization  
+- Right sidebar for population statistics and charts (toggleable)
+- Real-time generation counter and live cell count
+- Interactive population growth visualization
 - Organized preset categories with descriptions
 
 ## Installation
@@ -97,6 +110,17 @@ Browse organized categories of classic patterns:
 - Each preset includes a description of its behavior
 - Patterns are automatically positioned in the center of the current grid
 
+### Population Statistics
+
+Analyze the dynamics of cellular automata:
+
+- **Real-time Monitoring**: Live cell count updates automatically during simulation
+- **Population Charts**: Interactive graphs showing population changes over time
+- **Statistical Analysis**: Track maximum, minimum, and current population levels
+- **History Management**: Clear population history for fresh analysis
+- **Visual Interface**: Dedicated statistics panel with zoom and drag capabilities
+- **Toggle Display**: Show/hide statistics panel as needed for optimal screen space
+
 ## Project Structure
 
 ```
@@ -116,7 +140,7 @@ src/
 - **Memory**: Efficient grid representation using 1D vector for better cache performance
 - **Serialization**: JSON-based save/load system using serde
 - **File Management**: Native file dialogs with rfd crate
-- **Dependencies**: serde, serde_json, rfd, chrono for enhanced functionality
+- **Dependencies**: serde, serde_json, rfd, chrono, egui_plot for enhanced functionality and data visualization
 
 ## Contributing
 
@@ -195,8 +219,9 @@ These simple rules create surprisingly complex and beautiful patterns!
 
 #### Statistics and Analysis / 统计和分析
 
-- Real-time live cell count statistics / 实时显示活细胞数量统计
-- Add population growth charts / 添加人口增长图表
+- ✅ **COMPLETED** Real-time live cell count statistics / 实时显示活细胞数量统计
+- ✅ **COMPLETED** Add population growth charts / 添加人口增长图表
+- ✅ **COMPLETED** Interactive population analysis with max/min tracking / 交互式人口分析，包含最大/最小值追踪
 - Detect stable states and periodic patterns / 检测稳定状态和周期性图案
 - Add pattern recognition (auto-identify known patterns) / 添加模式识别（自动识别已知图案）
 
@@ -230,10 +255,11 @@ These simple rules create surprisingly complex and beautiful patterns!
 ### Recommended Implementation Priority / 推荐实现优先级
 
 1. ✅ **COMPLETED: Save/Load Functionality** - Essential for preserving work / 保存/加载功能 - 保存工作的基础需求
-2. **Zoom and Visual Improvements** - Better user experience / 缩放和视觉改进 - 更好的用户体验
-3. **History and Playback** - Practical utility / 历史记录回放 - 实用功能
-4. **Statistics and Analysis** - Educational value / 统计和分析 - 教育价值
+2. ✅ **COMPLETED: Zoom and Visual Improvements** - Better user experience / 缩放和视觉改进 - 更好的用户体验  
+3. ✅ **COMPLETED: Statistics and Analysis** - Educational value / 统计和分析 - 教育价值
+4. **History and Playback** - Practical utility / 历史记录回放 - 实用功能
 5. **More Preset Patterns** - Content enrichment / 更多预设图案 - 内容丰富
+6. **Cell Age Visualization** - Enhanced visual feedback / 细胞年龄可视化 - 增强视觉反馈
 
 ### Contributing to Improvements / 参与改进
 

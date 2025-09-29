@@ -233,6 +233,17 @@ impl Grid {
             }
         }
     }
+
+    /// 计算网格中当前存活细胞的总数
+    ///
+    /// # 返回值
+    /// 返回当前网格中存活细胞的数量
+    pub fn count_alive_cells(&self) -> usize {
+        self.cells
+            .iter()
+            .filter(|&&cell| cell == CellState::Alive)
+            .count()
+    }
 }
 
 /// 为Grid实现Default trait

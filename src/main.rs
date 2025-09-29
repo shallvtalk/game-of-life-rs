@@ -60,6 +60,12 @@ struct GameOfLifeApp {
     theme_transition_start: Option<std::time::Instant>,
     /// 目标主题（用于动画过渡）
     target_theme: ColorTheme,
+    /// 人口历史记录（最近的活细胞数量）
+    population_history: Vec<usize>,
+    /// 人口历史记录的最大长度
+    max_history_length: usize,
+    /// 是否显示统计信息
+    show_statistics: bool,
 }
 
 /// 为GameOfLifeApp实现Default trait
@@ -74,6 +80,11 @@ impl Default for GameOfLifeApp {
         let mut grid = Grid::new(grid_width, grid_height);
         let density = 0.3;
         grid.randomize(density);
+
+        // 初始化人口历史记录
+        let initial_population = grid.count_alive_cells();
+        let mut population_history = Vec::new();
+        population_history.push(initial_population);
 
         Self {
             grid,
@@ -96,6 +107,9 @@ impl Default for GameOfLifeApp {
             theme_transition_progress: 1.0, // 初始无动画
             theme_transition_start: None,   // 初始无动画
             target_theme: ColorTheme::Dark, // 初始目标主题与当前主题相同
+            population_history,             // 使用预初始化的人口历史
+            max_history_length: 200,        // 最多保存200代历史
+            show_statistics: true,          // 默认显示统计信息
         }
     }
 }
@@ -352,6 +366,32 @@ impl GameOfLifeApp {
         self.set_status(info);
     }
 
+    /// 更新人口统计历史
+    fn update_population_history(&mut self) {
+        let current_population = self.grid.count_alive_cells();
+        self.population_history.push(current_population);
+        
+        // 保持历史记录在指定长度内
+        if self.population_history.len() > self.max_history_length {
+            self.population_history.remove(0);
+        }
+    }
+
+    /// 清除人口统计历史
+    pub fn clear_population_history(&mut self) {
+        self.population_history.clear();
+    }
+
+    /// 获取当前活细胞数量
+    pub fn get_current_population(&self) -> usize {
+        self.grid.count_alive_cells()
+    }
+
+    /// 获取人口历史记录的引用
+    pub fn get_population_history(&self) -> &Vec<usize> {
+        &self.population_history
+    }
+
 }
 
 /// 为GameOfLifeApp实现eframe::App trait
@@ -376,6 +416,7 @@ impl eframe::App for GameOfLifeApp {
         if self.is_running && self.last_update.elapsed() >= self.update_interval {
             self.grid.next_generation(); // 计算下一代
             self.generation += 1; // 增加代数计数
+            self.update_population_history(); // 更新人口统计
             self.last_update = std::time::Instant::now(); // 更新时间戳
             ctx.request_repaint(); // 请求重绘界面
         }
@@ -384,6 +425,13 @@ impl eframe::App for GameOfLifeApp {
         egui::SidePanel::left("controls").show(ctx, |ui| {
             self.render_control_panel(ui);
         });
+
+        // 创建右侧统计面板（仅在显示统计时）
+        if self.show_statistics {
+            egui::SidePanel::right("statistics").show(ctx, |ui| {
+                self.render_statistics_panel(ui);
+            });
+        }
 
         // 创建中央面板用于显示游戏网格
         egui::CentralPanel::default().show(ctx, |ui| {

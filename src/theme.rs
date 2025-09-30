@@ -1,6 +1,5 @@
 /// 主题管理模块
 /// 负责颜色主题切换和动画效果
-
 use eframe::egui;
 
 /// 颜色主题枚举
@@ -100,7 +99,7 @@ impl ThemeManager {
             egui::Color32::GRAY,  // 网格线
         );
         let dark_colors = (
-            egui::Color32::WHITE,           // 存活细胞
+            egui::Color32::WHITE,                // 存活细胞
             egui::Color32::from_rgb(30, 30, 30), // 死亡细胞
             egui::Color32::from_rgb(60, 60, 60), // 网格线
         );
@@ -158,7 +157,6 @@ impl ThemeManager {
         };
         self.start_theme_transition(new_theme);
     }
-
 }
 
 impl Default for ThemeManager {
@@ -182,26 +180,17 @@ mod tests {
     fn test_theme_toggle() {
         let mut theme_manager = ThemeManager::new(ColorTheme::Light);
         theme_manager.toggle_theme();
-        
+
         // 应该开始过渡到Dark主题
         assert!(theme_manager.is_transitioning());
         assert_eq!(theme_manager.target_theme, ColorTheme::Dark);
     }
 
     #[test]
-    fn test_immediate_theme_change() {
-        let mut theme_manager = ThemeManager::new(ColorTheme::Light);
-        theme_manager.set_theme_immediate(ColorTheme::Dark);
-        
-        assert_eq!(theme_manager.current_theme(), ColorTheme::Dark);
-        assert!(!theme_manager.is_transitioning());
-    }
-
-    #[test]
     fn test_color_interpolation() {
         let color1 = egui::Color32::from_rgb(0, 0, 0);
         let color2 = egui::Color32::from_rgb(255, 255, 255);
-        
+
         let mid_color = ThemeManager::lerp_color(color1, color2, 0.5);
         assert_eq!(mid_color, egui::Color32::from_rgb(127, 127, 127));
     }

@@ -1,6 +1,6 @@
-/// RLE (Run Length Encoded) 格式处理模块
-/// 用于导入和导出标准的生命游戏RLE格式文件
-use crate::game::{Grid, CellState};
+/// RLE格式保存和加载模块
+/// 专门支持RLE (Run Length Encoded) 格式的文件保存和加载功能
+use crate::game::{CellState, Grid};
 use std::fs;
 use std::path::Path;
 
@@ -28,7 +28,18 @@ impl std::fmt::Display for RleError {
     }
 }
 
+impl std::error::Error for RleError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            RleError::IoError(e) => Some(e),
+            RleError::ParseError(_) => None,
+            RleError::InvalidFormat(_) => None,
+        }
+    }
+}
+
 /// RLE图案数据结构
+#[derive(Debug, Clone)]
 pub struct RlePattern {
     pub name: String,
     pub comment: String,
@@ -75,6 +86,28 @@ impl RlePattern {
             data,
         }
     }
+
+    /// 将RLE图案转换为Grid
+    #[allow(dead_code)]
+    pub fn to_grid(&self) -> Result<Grid, RleError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(RleError::InvalidFormat(
+                "Grid dimensions cannot be zero".to_string(),
+            ));
+        }
+
+        let mut grid = Grid::new(self.width, self.height);
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.data[y][x] {
+                    grid.set_cell(x, y, CellState::Alive);
+                }
+            }
+        }
+
+        Ok(grid)
+    }
 }
 
 /// 将RLE图案导出为RLE格式字符串
@@ -100,7 +133,7 @@ pub fn export_to_rle_string(pattern: &RlePattern) -> String {
 
     // 编码图案数据
     let mut encoded_lines = Vec::new();
-    
+
     for row in &pattern.data {
         let mut line = String::new();
         let mut count = 0;
@@ -157,6 +190,19 @@ fn append_run(line: &mut String, count: usize, is_alive: bool) {
             line.push_str(&format!("{}b", count));
         }
     }
+}
+
+/// 保存RLE图案到文件
+pub fn save_rle_file<P: AsRef<Path>>(
+    path: P,
+    grid: &Grid,
+    name: Option<String>,
+) -> Result<(), RleError> {
+    let pattern_name = name.unwrap_or_else(|| "Exported Pattern".to_string());
+    let pattern = RlePattern::from_grid(grid, pattern_name);
+    let rle_string = export_to_rle_string(&pattern);
+    fs::write(path, rle_string)?;
+    Ok(())
 }
 
 /// 从RLE格式字符串导入图案
@@ -222,13 +268,13 @@ fn parse_header_line(line: &str, pattern: &mut RlePattern) -> Result<(), RleErro
 
     for part in parts {
         if let Some(value) = part.strip_prefix("x=") {
-            pattern.width = value.parse().map_err(|_| {
-                RleError::ParseError(format!("Invalid width: {}", value))
-            })?;
+            pattern.width = value
+                .parse()
+                .map_err(|_| RleError::ParseError(format!("Invalid width: {}", value)))?;
         } else if let Some(value) = part.strip_prefix("y=") {
-            pattern.height = value.parse().map_err(|_| {
-                RleError::ParseError(format!("Invalid height: {}", value))
-            })?;
+            pattern.height = value
+                .parse()
+                .map_err(|_| RleError::ParseError(format!("Invalid height: {}", value)))?;
         } else if let Some(value) = part.strip_prefix("rule=") {
             pattern.rule = value.to_string();
         }
@@ -250,7 +296,7 @@ fn parse_header_line(line: &str, pattern: &mut RlePattern) -> Result<(), RleErro
 fn parse_pattern_data(data: &str, pattern: &mut RlePattern) -> Result<(), RleError> {
     // 移除结束符号!
     let data = data.trim_end_matches('!').trim();
-    
+
     let mut x = 0;
     let mut y = 0;
     let mut chars = data.chars().peekable();
@@ -268,9 +314,9 @@ fn parse_pattern_data(data: &str, pattern: &mut RlePattern) -> Result<(), RleErr
                     }
                 }
 
-                let count: usize = num_str.parse().map_err(|_| {
-                    RleError::ParseError(format!("Invalid number: {}", num_str))
-                })?;
+                let count: usize = num_str
+                    .parse()
+                    .map_err(|_| RleError::ParseError(format!("Invalid number: {}", num_str)))?;
 
                 // 读取下一个字符来确定类型
                 if let Some(next_ch) = chars.next() {
@@ -338,18 +384,8 @@ fn parse_pattern_data(data: &str, pattern: &mut RlePattern) -> Result<(), RleErr
     Ok(())
 }
 
-/// 导出RLE文件
-pub fn export_rle_file<P: AsRef<Path>>(
-    path: P,
-    pattern: &RlePattern,
-) -> Result<(), RleError> {
-    let rle_string = export_to_rle_string(pattern);
-    fs::write(path, rle_string)?;
-    Ok(())
-}
-
-/// 导入RLE文件
-pub fn import_rle_file<P: AsRef<Path>>(path: P) -> Result<RlePattern, RleError> {
+/// 从RLE文件加载图案
+pub fn load_rle_file<P: AsRef<Path>>(path: P) -> Result<RlePattern, RleError> {
     let content = fs::read_to_string(path)?;
     import_from_rle_string(&content)
 }
@@ -357,6 +393,39 @@ pub fn import_rle_file<P: AsRef<Path>>(path: P) -> Result<RlePattern, RleError> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_rle_pattern_creation() {
+        let mut grid = Grid::new(5, 5);
+        grid.set_cell(1, 1, CellState::Alive);
+        grid.set_cell(2, 2, CellState::Alive);
+
+        let pattern = RlePattern::from_grid(&grid, "Test Pattern".to_string());
+
+        assert_eq!(pattern.width, 5);
+        assert_eq!(pattern.height, 5);
+        assert_eq!(pattern.name, "Test Pattern");
+        assert!(pattern.data[1][1]);
+        assert!(pattern.data[2][2]);
+        assert!(!pattern.data[0][0]);
+    }
+
+    #[test]
+    fn test_rle_pattern_to_grid() {
+        let mut pattern = RlePattern::new("Test".to_string(), 3, 3);
+        pattern.data[0][0] = true;
+        pattern.data[1][1] = true;
+        pattern.data[2][2] = true;
+
+        let grid = pattern.to_grid().unwrap();
+        assert_eq!(grid.width(), 3);
+        assert_eq!(grid.height(), 3);
+        assert_eq!(*grid.get_cell(0, 0), CellState::Alive);
+        assert_eq!(*grid.get_cell(1, 1), CellState::Alive);
+        assert_eq!(*grid.get_cell(2, 2), CellState::Alive);
+        assert_eq!(*grid.get_cell(0, 1), CellState::Dead);
+    }
 
     #[test]
     fn test_rle_export_import() {
@@ -367,11 +436,10 @@ mod tests {
 
         // 导出为RLE字符串
         let rle_string = export_to_rle_string(&pattern);
-        println!("Exported RLE:\n{}", rle_string);
 
         // 重新导入
         let imported = import_from_rle_string(&rle_string).unwrap();
-        
+
         // 验证
         assert_eq!(imported.width, 3);
         assert_eq!(imported.height, 3);
@@ -379,5 +447,43 @@ mod tests {
         assert_eq!(imported.comment, "Test comment");
         assert!(imported.data[1][1]); // 中心点应该是活的
         assert!(!imported.data[0][0]); // 其他点应该是死的
+    }
+
+    #[test]
+    fn test_save_and_load_rle() -> Result<(), Box<dyn std::error::Error>> {
+        let mut grid = Grid::new(4, 4);
+        grid.set_cell(1, 1, CellState::Alive);
+        grid.set_cell(2, 1, CellState::Alive);
+        grid.set_cell(3, 1, CellState::Alive);
+
+        let temp_file = NamedTempFile::new()?;
+        let temp_path = temp_file.path();
+
+        // 保存
+        save_rle_file(temp_path, &grid, Some("Line Pattern".to_string()))?;
+
+        // 加载
+        let loaded_pattern = load_rle_file(temp_path)?;
+
+        assert_eq!(loaded_pattern.width, 4);
+        assert_eq!(loaded_pattern.height, 4);
+        assert_eq!(loaded_pattern.name, "Line Pattern");
+
+        let loaded_grid = loaded_pattern.to_grid()?;
+        assert_eq!(*loaded_grid.get_cell(1, 1), CellState::Alive);
+        assert_eq!(*loaded_grid.get_cell(2, 1), CellState::Alive);
+        assert_eq!(*loaded_grid.get_cell(3, 1), CellState::Alive);
+        assert_eq!(*loaded_grid.get_cell(0, 0), CellState::Dead);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rle_validation() {
+        let invalid_pattern = RlePattern::new("Invalid".to_string(), 0, 5);
+        assert!(invalid_pattern.to_grid().is_err());
+
+        let valid_pattern = RlePattern::new("Valid".to_string(), 3, 3);
+        assert!(valid_pattern.to_grid().is_ok());
     }
 }

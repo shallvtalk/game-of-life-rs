@@ -25,7 +25,7 @@ impl PopulationStatistics {
     /// 添加新的人口数据点
     pub fn add_population(&mut self, population: usize) {
         self.history.push(population);
-        
+
         // 保持历史记录在指定长度内
         if self.history.len() > self.max_history_length {
             self.history.remove(0);
@@ -46,7 +46,11 @@ impl PopulationStatistics {
     pub fn get_history_length(&self) -> usize {
         self.history.len()
     }
-
+    /// 获取当前人口数（最后一个数据点）
+    #[allow(dead_code)]
+    pub fn get_current_population(&self) -> Option<usize> {
+        self.history.last().copied()
+    }
     /// 获取最大人口数
     pub fn get_max_population(&self) -> Option<usize> {
         self.history.iter().max().copied()
@@ -57,13 +61,12 @@ impl PopulationStatistics {
         self.history.iter().min().copied()
     }
 
-
     /// 获取平均人口
     pub fn get_average_population(&self) -> Option<f64> {
         if self.history.is_empty() {
             return None;
         }
-        
+
         let sum: usize = self.history.iter().sum();
         Some(sum as f64 / self.history.len() as f64)
     }
@@ -83,7 +86,6 @@ impl PopulationStatistics {
         self.show_statistics = visible;
     }
 
-
     /// 获取人口变化趋势
     /// 返回值：正数表示增长，负数表示下降，0表示稳定
     pub fn get_population_trend(&self, window_size: usize) -> Option<i32> {
@@ -92,21 +94,21 @@ impl PopulationStatistics {
         }
 
         let len = self.history.len();
-        let recent_avg: f64 = self.history[len - window_size..]
-            .iter()
-            .sum::<usize>() as f64 / window_size as f64;
-        
+        let recent_avg: f64 =
+            self.history[len - window_size..].iter().sum::<usize>() as f64 / window_size as f64;
+
         let previous_avg: f64 = self.history[len - window_size * 2..len - window_size]
             .iter()
-            .sum::<usize>() as f64 / window_size as f64;
+            .sum::<usize>() as f64
+            / window_size as f64;
 
         let diff = recent_avg - previous_avg;
         if diff > 1.0 {
-            Some(1)  // 增长
+            Some(1) // 增长
         } else if diff < -1.0 {
             Some(-1) // 下降
         } else {
-            Some(0)  // 稳定
+            Some(0) // 稳定
         }
     }
 
@@ -120,7 +122,7 @@ impl PopulationStatistics {
         let recent_history = &self.history[self.history.len() - window_size..];
         let max = *recent_history.iter().max().unwrap_or(&0);
         let min = *recent_history.iter().min().unwrap_or(&0);
-        
+
         max - min <= threshold
     }
 }
@@ -149,7 +151,7 @@ mod tests {
         stats.add_population(10);
         stats.add_population(15);
         stats.add_population(12);
-        
+
         assert_eq!(stats.get_history_length(), 3);
         assert_eq!(stats.get_current_population(), Some(12));
         assert_eq!(stats.get_max_population(), Some(15));
@@ -163,7 +165,7 @@ mod tests {
         stats.add_population(15);
         stats.add_population(12);
         stats.add_population(8);
-        
+
         assert_eq!(stats.get_history_length(), 2);
         assert_eq!(*stats.get_history(), vec![12, 8]);
     }
@@ -173,7 +175,7 @@ mod tests {
         let mut stats = PopulationStatistics::new(10);
         stats.add_population(10);
         stats.add_population(15);
-        
+
         assert!(stats.has_data());
         stats.clear_history();
         assert!(!stats.has_data());
@@ -185,7 +187,7 @@ mod tests {
         stats.add_population(10);
         stats.add_population(20);
         stats.add_population(30);
-        
+
         assert_eq!(stats.get_average_population(), Some(20.0));
     }
 
@@ -196,9 +198,9 @@ mod tests {
         for i in 0..5 {
             stats.add_population(100 + i % 2); // 100, 101, 100, 101, 100
         }
-        
+
         assert!(stats.is_stable(5, 2));
-        
+
         // 添加不稳定的数据
         stats.add_population(200);
         assert!(!stats.is_stable(6, 2));

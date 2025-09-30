@@ -124,28 +124,20 @@ impl GameOfLifeApp {
         self.theme_manager.apply_ui_theme(ctx);
     }
 
-    /// 保存游戏状态到文件
+    /// 保存游戏状态到RLE文件
     fn save_game(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("RLE Files", &["rle"])
-            .add_filter("Game of Life Files", &["gol"])
-            .add_filter("JSON Files", &["json"])
-            .set_file_name("game_state.gol")
+            .set_file_name("pattern.rle")
             .save_file()
         {
-            match save_load::save_file(
+            match save_load::save_rle_file(
                 &path,
                 &self.grid,
-                self.generation,
-                self.update_speed,
-                self.ui_state.cell_size(),
-                self.density,
+                Some("Exported Pattern".to_string()),
             ) {
                 Ok(_) => {
-                    let format = path.extension()
-                        .and_then(|ext| ext.to_str())
-                        .unwrap_or("unknown");
-                    self.set_status(format!("File saved as {} format to: {:?}", format, path));
+                    self.set_status(format!("RLE pattern saved to: {:?}", path));
                 }
                 Err(e) => {
                     self.set_status(format!("Save failed: {}", e));
@@ -154,50 +146,25 @@ impl GameOfLifeApp {
         }
     }
 
-    /// 从文件加载游戏状态
+    /// 从RLE文件加载图案
     fn load_game(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("RLE Files", &["rle"])
-            .add_filter("Game of Life Files", &["gol"])
-            .add_filter("JSON Files", &["json"])
             .pick_file()
         {
-            match save_load::load_file(&path) {
-                Ok(save_load::LoadResult::GameState(game_state)) => {
-                    match game_state.to_grid() {
-                        Ok(grid) => {
-                            self.grid = grid;
-                            self.generation = game_state.generation;
-                            self.update_speed = game_state.settings.update_speed;
-                            self.ui_state.set_cell_size(game_state.settings.cell_size);
-                            self.density = game_state.settings.density;
-                            self.grid_width = game_state.width;
-                            self.grid_height = game_state.height;
-
-                            // 更新更新间隔
-                            self.update_interval = std::time::Duration::from_millis(
-                                (1000.0 / self.update_speed) as u64,
-                            );
-
-                            self.set_status(format!("Game state loaded from: {:?}", path));
-                        }
-                        Err(e) => {
-                            self.set_status(format!("Load failed: {}", e));
-                        }
-                    }
-                }
-                Ok(save_load::LoadResult::RlePattern(pattern)) => {
+            match save_load::load_rle_file(&path) {
+                Ok(pattern) => {
                     self.load_rle_pattern(pattern, &path);
                 }
                 Err(e) => {
-                    self.set_status(format!("File read failed: {}", e));
+                    self.set_status(format!("Failed to load RLE file: {}", e));
                 }
             }
         }
     }
 
     /// 加载RLE图案
-    fn load_rle_pattern(&mut self, pattern: save_load::rle::RlePattern, path: &std::path::Path) {
+    fn load_rle_pattern(&mut self, pattern: save_load::RlePattern, path: &std::path::Path) {
         // 创建新网格以适应RLE图案大小
         let new_width = pattern.width.max(self.grid_width);
         let new_height = pattern.height.max(self.grid_height);

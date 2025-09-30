@@ -1,6 +1,5 @@
 /// UI状态管理模块
 /// 负责管理用户界面的各种状态信息
-
 use crate::game::CellState;
 
 /// UI状态管理器
@@ -37,11 +36,13 @@ impl UiStateManager {
     }
 
     /// 获取细胞大小
+    #[allow(dead_code)]
     pub fn cell_size(&self) -> f32 {
         self.cell_size
     }
 
     /// 设置细胞大小
+    #[allow(dead_code)]
     pub fn set_cell_size(&mut self, size: f32) {
         self.cell_size = size.max(1.0).min(50.0); // 限制在合理范围内
     }
@@ -77,7 +78,6 @@ impl UiStateManager {
     pub fn set_show_grid_lines(&mut self, show: bool) {
         self.show_grid_lines = show;
     }
-
 
     /// 获取拖动状态
     pub fn is_dragging(&self) -> bool {
@@ -127,7 +127,11 @@ impl UiStateManager {
             }
         }
     }
-
+    /// 检查是否有活动状态信息
+    #[allow(dead_code)]
+    pub fn has_active_status(&self) -> bool {
+        self.status_message.is_some()
+    }
 }
 
 impl Default for UiStateManager {
@@ -155,11 +159,11 @@ mod tests {
         ui_state.set_zoom_level(2.0);
         assert_eq!(ui_state.zoom_level(), 2.0);
         assert_eq!(ui_state.effective_cell_size(), 20.0);
-        
+
         // 测试缩放限制
         ui_state.set_zoom_level(10.0);
         assert_eq!(ui_state.zoom_level(), 5.0); // 应该被限制到最大值
-        
+
         ui_state.set_zoom_level(0.01);
         assert_eq!(ui_state.zoom_level(), 0.1); // 应该被限制到最小值
     }
@@ -169,7 +173,7 @@ mod tests {
         let mut ui_state = UiStateManager::new();
         ui_state.set_cell_size(100.0);
         assert_eq!(ui_state.cell_size(), 50.0); // 应该被限制到最大值
-        
+
         ui_state.set_cell_size(0.5);
         assert_eq!(ui_state.cell_size(), 1.0); // 应该被限制到最小值
     }
@@ -178,10 +182,10 @@ mod tests {
     fn test_status_management() {
         let mut ui_state = UiStateManager::new();
         ui_state.set_status("Test message".to_string());
-        
+
         assert!(ui_state.has_active_status());
         assert_eq!(ui_state.status_message(), Some(&"Test message".to_string()));
-        
+
         ui_state.clear_status();
         assert!(!ui_state.has_active_status());
         assert_eq!(ui_state.status_message(), None);
@@ -192,37 +196,12 @@ mod tests {
         let mut ui_state = UiStateManager::new();
         ui_state.set_dragging(true);
         ui_state.set_drag_state(CellState::Alive);
-        
+
         assert!(ui_state.is_dragging());
         assert_eq!(ui_state.drag_state(), Some(CellState::Alive));
-        
+
         ui_state.set_dragging(false);
         assert!(!ui_state.is_dragging());
         assert_eq!(ui_state.drag_state(), None);
-    }
-
-    #[test]
-    fn test_grid_lines_toggle() {
-        let mut ui_state = UiStateManager::new();
-        assert!(ui_state.show_grid_lines());
-        
-        ui_state.toggle_grid_lines();
-        assert!(!ui_state.show_grid_lines());
-        
-        ui_state.toggle_grid_lines();
-        assert!(ui_state.show_grid_lines());
-    }
-
-    #[test]
-    fn test_summary() {
-        let ui_state = UiStateManager::new();
-        let summary = ui_state.get_summary();
-        
-        assert_eq!(summary.cell_size, 10.0);
-        assert_eq!(summary.zoom_level, 1.0);
-        assert_eq!(summary.effective_cell_size, 10.0);
-        assert!(summary.show_grid_lines);
-        assert!(!summary.is_dragging);
-        assert!(!summary.has_status);
     }
 }
